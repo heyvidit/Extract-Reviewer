@@ -1,0 +1,2358 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Extraction Reviewer</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:13px;background:#f5f5f3;color:#111;height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+/* Global scrollbar polish (webkit) */
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:#d6d6d4;border-radius:6px;border:2px solid transparent;background-clip:padding-box;transition:background 0.15s ease}
+*::-webkit-scrollbar-thumb:hover{background:#b0b0ae;background-clip:padding-box;border:2px solid transparent}
+*::-webkit-scrollbar-corner{background:transparent}
+html{scrollbar-width:thin;scrollbar-color:#d6d6d4 transparent}
+/* Selection */
+::selection{background:rgba(41,128,185,0.22)}
+/* Focus rings */
+:focus-visible{outline:2px solid rgba(41,128,185,0.55);outline-offset:1px}
+button:focus:not(:focus-visible),input:focus:not(:focus-visible),select:focus:not(:focus-visible){outline:none}
+
+.screen{display:none;height:100vh;overflow:auto}
+.screen.active{display:flex}
+#loginScreen{align-items:center;justify-content:center;background:#f5f5f3}
+#mainScreen{flex-direction:column}
+#reviewScreen{flex-direction:row}
+
+/* Login */
+.login-card{background:#fff;border-radius:14px;border:1px solid #e0e0de;padding:24px 40px 32px;width:400px;max-width:92%;box-shadow:0 4px 24px rgba(20,40,60,0.06)}
+.login-card h1{font-size:20px;font-weight:600;margin-bottom:4px}
+.login-card .sub{font-size:12px;color:#888;margin-bottom:28px}
+.lbl{font-size:11px;color:#555;margin-bottom:5px;font-weight:500}
+.inp{width:100%;padding:9px 11px;border:1px solid #d0d0ce;border-radius:7px;font-size:13px;outline:none;margin-bottom:16px;background:#fff;color:#111;transition:border-color 0.15s ease,box-shadow 0.15s ease}
+.inp:hover{border-color:#b8b8b6}
+.inp:focus{border-color:#2980b9;box-shadow:0 0 0 3px rgba(41,128,185,0.12)}
+.login-err{font-size:12px;color:#b03030;margin-bottom:12px;display:none}
+.btn-primary{width:100%;padding:10px;border:none;border-radius:7px;background:#2980b9;color:#fff;cursor:pointer;font-size:13px;font-weight:500;transition:background 0.15s ease,box-shadow 0.15s ease,transform 0.08s ease}
+.btn-primary:hover{background:#1f6fa0;box-shadow:0 2px 8px rgba(41,128,185,0.25)}
+.btn-primary:active{transform:translateY(1px)}
+.btn-primary:disabled{background:#b0cce0;cursor:default;box-shadow:none}
+
+/* Main screen topbar */
+.main-topbar{display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:1px solid #e5e5e3;background:#fff;flex-shrink:0;height:52px}
+.main-topbar h2{font-size:15px;font-weight:600;margin-right:28px}
+.main-nav{display:flex;gap:2px;align-items:center}
+.nav-tab{padding:6px 18px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:500;color:#666;border-radius:7px;transition:all 0.12s}
+.nav-tab:hover{background:#f0f0ee;color:#111}
+.nav-tab.active{background:#2980b9;color:#fff}
+.user-pill{display:flex;align-items:center;gap:8px;font-size:12px;color:#555}
+.user-dot{width:8px;height:8px;border-radius:50%;background:#2980b9}
+.back-btn{padding:5px 10px;border:1px solid #ddd;border-radius:6px;background:transparent;cursor:pointer;font-size:11px;color:#555}
+.back-btn:hover{background:#f5f5f3}
+.main-body{flex:1;overflow:auto}
+
+/* Stats panel */
+#statsPanel{padding:0;display:none;flex-direction:column}
+#statsPanel.active{display:flex}
+.stats-hero{background:linear-gradient(135deg,#1a3a5c 0%,#2980b9 100%);padding:28px 32px 32px;color:#fff;flex-shrink:0}
+.stats-hero-title{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;opacity:.65;margin-bottom:6px}
+.stats-hero-row{display:flex;align-items:flex-end;gap:32px;flex-wrap:wrap}
+.stats-big-num{font-size:52px;font-weight:700;line-height:1;letter-spacing:-1px}
+.stats-big-lbl{font-size:12px;opacity:.7;margin-top:2px}
+.stats-hero-divider{width:1px;height:60px;background:rgba(255,255,255,0.2)}
+.stats-hero-mini{display:flex;flex-direction:column;gap:6px}
+.stats-hero-mini-item{display:flex;align-items:center;gap:8px;font-size:13px}
+.stats-hero-mini-item .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.stats-hero-mini-item .num{font-weight:700;font-size:15px;min-width:32px}
+.stats-filters{display:flex;gap:10px;align-items:center;padding:16px 32px;background:#fff;border-bottom:1px solid #e5e5e3;flex-shrink:0;flex-wrap:wrap}
+.stats-filters label{font-size:11px;color:#888;font-weight:500;margin-right:3px}
+.stats-filter-group{display:flex;align-items:center;gap:5px}
+.stats-filters select,.stats-filters input[type=date]{padding:5px 10px;border:1px solid #ddd;border-radius:6px;font-size:12px;background:#fff;color:#111;outline:none;height:30px}
+.stats-filters input[type=date]{cursor:pointer}
+.stats-filter-sep{width:1px;height:20px;background:#e5e5e3;margin:0 4px}
+.stats-quick-btn{padding:4px 10px;border:1px solid #ddd;border-radius:5px;background:transparent;cursor:pointer;font-size:11px;color:#666}
+.stats-quick-btn:hover,.stats-quick-btn.on{background:#2980b9;color:#fff;border-color:#2980b9}
+.stats-refresh{padding:5px 14px;border:1px solid #2980b9;border-radius:6px;background:#2980b9;color:#fff;cursor:pointer;font-size:12px;margin-left:auto;height:30px}
+.stats-refresh:hover{background:#1f6fa0}
+.stats-body{flex:1;overflow:auto;padding:24px 32px}
+.stats-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:24px}
+.stat-card{background:#fff;border-radius:10px;border:1px solid #e5e5e3;padding:16px 18px;position:relative;overflow:hidden;transition:transform 0.15s ease,box-shadow 0.15s ease,border-color 0.15s ease}
+.stat-card:hover{transform:translateY(-1px);box-shadow:0 3px 12px rgba(20,40,60,0.06);border-color:#d8d8d6}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--card-color,#2980b9)}
+.stat-card .sc-lbl{font-size:11px;color:#888;margin-bottom:8px;font-weight:500}
+.stat-card .sc-val{font-size:30px;font-weight:700;line-height:1;color:var(--card-color,#111)}
+.stat-card .sc-sub{font-size:11px;color:#aaa;margin-top:5px}
+.sc-val.blue{color:#2980b9}.sc-val.green{color:#1a7a35}.sc-val.orange{color:#b06010}.sc-val.red{color:#b03030}
+.stats-charts{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.chart-card{background:#fff;border-radius:10px;border:1px solid #e5e5e3;padding:20px}
+.chart-card h4{font-size:13px;font-weight:600;margin-bottom:4px;color:#333}
+.chart-card .ch-sub{font-size:11px;color:#aaa;margin-bottom:16px}
+.chart-wrap{position:relative;height:220px}
+.progress-list{display:flex;flex-direction:column;gap:12px}
+.progress-item{display:flex;flex-direction:column;gap:5px}
+.progress-header{display:flex;justify-content:space-between;font-size:12px}
+.progress-header .p-name{font-weight:500;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+.progress-header .p-pct{color:#2980b9;font-weight:600}
+.progress-bar-bg{height:6px;background:#f0f0ee;border-radius:3px;overflow:hidden}
+.progress-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#2980b9,#1a5c8a);transition:width 0.4s ease}
+@media(max-width:700px){.stats-charts{grid-template-columns:1fr}}
+
+/* Runs panel */
+#runsPanel{padding:24px;display:none;flex-direction:column}
+#runsPanel.active{display:flex}
+.runs-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.runs-toolbar input{padding:7px 12px;border:1px solid #ddd;border-radius:7px;font-size:12px;width:220px;outline:none;background:#fff;transition:border-color 0.15s ease,box-shadow 0.15s ease}
+.runs-toolbar input:hover{border-color:#b8b8b6}
+.runs-toolbar input:focus{border-color:#2980b9;box-shadow:0 0 0 3px rgba(41,128,185,0.12)}
+.runs-filter-sel{padding:6px 10px;border:1px solid #ddd;border-radius:7px;font-size:12px;background:#fff;color:#111;outline:none;height:33px;transition:border-color 0.15s ease}
+.runs-filter-sel:hover,.runs-filter-sel:focus{border-color:#2980b9}
+.btn-new-run{padding:7px 16px;border:none;border-radius:7px;background:#2980b9;color:#fff;cursor:pointer;font-size:12px;font-weight:500;margin-left:auto;transition:background 0.15s ease,box-shadow 0.15s ease,transform 0.08s ease}
+.btn-new-run:hover{background:#1f6fa0;box-shadow:0 2px 8px rgba(41,128,185,0.22)}
+.btn-new-run:active{transform:translateY(1px)}
+.s-ip{background:#fef5ea;color:#b06010}.s-ap{background:#eaf6ee;color:#1a7a35}
+.run-status-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:500}
+.runs-table-wrap{background:#fff;border-radius:10px;border:1px solid #e5e5e3;overflow:hidden;flex:1}
+.runs-table-wrap table{width:100%;border-collapse:collapse}
+.runs-table-wrap thead th{background:#f5f5f3;padding:9px 12px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#666;border-bottom:1px solid #e5e5e3;white-space:nowrap;cursor:pointer;user-select:none;position:sticky;top:0;z-index:2}
+.runs-table-wrap thead th:hover{background:#ebebea;color:#333}
+.runs-table-wrap thead th .sort-arrow{font-size:9px;margin-left:4px;opacity:.4}
+.runs-table-wrap thead th.sorted .sort-arrow{opacity:1;color:#2980b9}
+.runs-table-wrap tbody tr{border-bottom:1px solid #f0f0ee;cursor:pointer;transition:background 0.12s ease}
+.runs-table-wrap tbody tr:last-child{border-bottom:none}
+.runs-table-wrap tbody tr:hover{background:#f7faff}
+.runs-table-wrap tbody td{padding:10px 12px;font-size:12px;color:#222;vertical-align:middle}
+.runs-table-wrap tbody td.empty-td{text-align:center;padding:50px;color:#bbb;font-style:italic;cursor:default}
+.rt-client{font-weight:600;color:#1a3a5c}
+.rt-meta{font-size:11px;color:#999}
+
+/* Config panel */
+#configPanel{padding:24px;display:none;flex-direction:column}
+#configPanel.active{display:flex}
+#pendingPanel{padding:24px;display:none;flex-direction:column}
+#pendingPanel.active{display:flex}
+.pending-drop-zone{border:2px dashed #ccc;border-radius:8px;padding:22px;text-align:center;color:#888;cursor:pointer;margin-bottom:14px;transition:all 0.15s;font-size:13px;background:#fafaf8}
+.pending-drop-zone:hover,.pending-drop-zone.dragover{border-color:#2980b9;color:#2980b9;background:#eef5ff}
+.pending-drop-zone.uploading{border-color:#f59e0b;color:#b06010;background:#fef9f0}
+.config-section{background:#fff;border-radius:10px;border:1px solid #e5e5e3;overflow:hidden;max-width:700px}
+.config-section-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #e5e5e3}
+.config-section-header h3{font-size:13px;font-weight:600;color:#333}
+.btn-add-config{padding:6px 14px;border:none;border-radius:6px;background:#2980b9;color:#fff;cursor:pointer;font-size:12px;font-weight:500}
+.btn-add-config:hover{background:#1f6fa0}
+.config-table{width:100%;border-collapse:collapse}
+.config-table th{padding:8px 16px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#888;background:#fafaf8;border-bottom:1px solid #f0f0ee}
+.config-table td{padding:10px 16px;font-size:13px;border-bottom:1px solid #f5f5f3;vertical-align:middle}
+.config-table tr:last-child td{border-bottom:none}
+.config-table tr:hover td{background:#fafaf8}
+.cfg-del-btn{padding:3px 9px;border:1px solid #e0a0a0;border-radius:5px;background:transparent;color:#b03030;cursor:pointer;font-size:11px}
+.cfg-del-btn:hover{background:#fdecea}
+.cfg-edit-btn{padding:3px 9px;border:1px solid #c8daf5;border-radius:5px;background:transparent;color:#2980b9;cursor:pointer;font-size:11px;margin-right:5px}
+.cfg-edit-btn:hover{background:#eef5ff}
+.config-empty{padding:28px;text-align:center;color:#bbb;font-size:12px;font-style:italic}
+
+/* Client modal */
+#clientModal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.42);z-index:60;align-items:center;justify-content:center}
+#clientModal.open{display:flex}
+.cm-box{background:#fff;border-radius:12px;border:0.5px solid #ddd;padding:24px;width:400px;max-width:95%}
+.cm-box h3{font-size:15px;font-weight:600;margin-bottom:18px}
+
+/* Review screen */
+.panel{height:100%;overflow:hidden;display:flex;flex-direction:column}
+.panel-left{width:38%;min-width:240px;background:#fff;border-right:1px solid #ddd}
+.panel-right{flex:1;min-width:300px;background:#fff;overflow:hidden;display:flex;flex-direction:column}
+.divider{width:5px;background:#e5e5e3;cursor:col-resize;flex-shrink:0}
+.divider:hover,.divider.active{background:#bbb}
+.doc-header{padding:10px 14px;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:#fafaf8}
+.doc-header h3{font-size:12px;font-weight:600;color:#333}
+.doc-tabs{display:flex;gap:0;border-bottom:1px solid #eee;flex-shrink:0;overflow-x:auto;background:#fafaf8}
+.doc-tab{padding:7px 12px;font-size:11px;border:none;background:transparent;cursor:pointer;color:#777;border-bottom:2px solid transparent;white-space:nowrap;display:flex;align-items:center;gap:4px}
+.doc-tab.active{color:#111;border-bottom-color:#2980b9;font-weight:500}
+.doc-tab .cls{width:13px;height:13px;border-radius:50%;border:none;background:transparent;cursor:pointer;font-size:9px;color:#999;display:inline-flex;align-items:center;justify-content:center}
+.doc-tab .cls:hover{background:#ddd;color:#333}
+.doc-body{flex:1;overflow:auto;position:relative;min-height:0;display:flex;flex-direction:column}
+.upload-zone{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:30px;text-align:center;color:#999}
+.upload-zone.dragover{background:#eef5ff}
+.upload-zone h4{font-size:13px;color:#555;margin-bottom:6px;font-weight:500}
+.upload-zone p{font-size:11px;color:#aaa;margin-bottom:14px}
+.sm-btn{padding:6px 14px;border:1px solid #2980b9;border-radius:6px;background:#2980b9;color:#fff;cursor:pointer;font-size:11px;font-weight:500}
+.sm-btn:hover{background:#1f6fa0}
+.pdf-controls{flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:10px;padding:7px 12px;background:rgba(40,40,40,0.90);backdrop-filter:blur(4px);color:#fff;font-size:11px}
+.pdf-controls button{padding:3px 9px;border:1px solid rgba(255,255,255,0.25);border-radius:4px;background:transparent;color:#fff;cursor:pointer;font-size:11px}
+.pdf-controls button:hover{background:rgba(255,255,255,0.15)}
+.pdf-scroll{flex:1;overflow:auto;min-height:0}
+.pdf-pages{display:block;padding:10px}
+.pdf-page-wrapper{position:relative;display:inline-block;margin:0 auto 8px auto}
+.pdf-pages canvas{box-shadow:0 1px 6px rgba(0,0,0,0.15);background:#fff}
+.text-viewer{padding:14px;font-family:'Menlo',monospace;font-size:11px;white-space:pre-wrap;word-break:break-all;line-height:1.6;color:#333;flex:1;overflow:auto}
+.img-viewer{display:flex;align-items:center;justify-content:center;flex:1;padding:20px;overflow:auto}
+.img-viewer img{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px;box-shadow:0 1px 8px rgba(0,0,0,0.1)}
+.pdf-highlight-box{position:absolute;background:rgba(255,220,50,0.45);border:2px solid #e6be00;border-radius:3px;pointer-events:none;z-index:3}
+@keyframes hlp{0%{opacity:0}10%{opacity:1}70%{opacity:1}100%{opacity:0}}
+.pdf-highlight-box.animate{animation:hlp 4s ease-out forwards}
+.review-topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #eee;flex-shrink:0;gap:10px}
+.rt-left{flex:1;min-width:0}
+.rt-fname{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rt-meta{font-size:11px;color:#888;margin-top:1px}
+.rt-actions{display:flex;gap:7px;align-items:center;flex-shrink:0}
+.online-pills{display:flex;gap:4px;align-items:center}
+.opill{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:500;border:1px solid transparent}
+.op-reviewer{background:#fff8e1;color:#b06010;border-color:#f5d88a}
+.op-validator{background:#e8eaf6;color:#3949ab;border-color:#9fa8da}
+.op-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.mode-tabs{display:flex;gap:0;border:1px solid #ddd;border-radius:8px;overflow:hidden;width:fit-content}
+.mode-tab{padding:6px 18px;font-size:12px;font-weight:500;border:none;cursor:pointer;background:#f5f5f3;color:#666;transition:background 0.15s ease,color 0.15s ease}
+.mode-tab:hover:not(.active){background:#ececea;color:#333}
+.mode-tab.active{background:#2980b9;color:#fff}
+.mode-tab:first-child{border-right:1px solid #ddd}
+.right-scroll{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:14px;min-height:0}
+.right-scroll>#app{flex:1;display:flex;flex-direction:column;min-height:0}
+.sum{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.sc{background:#f5f5f3;border-radius:8px;padding:10px 14px;border:1px solid transparent;transition:border-color 0.15s ease,background 0.15s ease;cursor:pointer;user-select:none}
+.sc:hover{background:#efefed;border-color:#e0e0de}
+.sc.sc-active{background:#eef5ff;border-color:#2980b9;box-shadow:0 0 0 2px rgba(41,128,185,0.15)}
+.sc.sc-active .sl{color:#2980b9}
+.sl{font-size:11px;color:#666;margin-bottom:3px}
+.sv{font-size:22px;font-weight:500}.sv.r{color:#b03030}.sv.g{color:#1a7a35}
+.ctrl{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.fb{padding:4px 10px;border:0.5px solid #c0392b;border-radius:6px;background:transparent;cursor:pointer;font-size:11px;color:#b03030;transition:background 0.15s ease,color 0.15s ease}
+.fb:hover:not(.on){background:#fdecea}
+.fb.on{background:#c0392b;color:#fff}
+.sf{padding:4px 8px;border:0.5px solid #ccc;border-radius:6px;font-size:11px;background:#fff;color:#111;outline:none;cursor:pointer;transition:border-color 0.15s ease}
+.sf:hover{border-color:#2980b9}
+.sf:focus{border-color:#2980b9}
+.gcbtn{padding:5px 12px;border:none;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;margin-left:auto;display:flex;align-items:center;gap:5px;transition:background 0.15s ease,transform 0.08s ease}
+.gcbtn:active{transform:scale(0.97)}
+.gcbtn.has{background:#1a7a35;color:#fff}.gcbtn.has:hover{background:#156030}
+.gcbtn.none{background:#eee;color:#999;cursor:default}
+.tw{border:0.5px solid #ddd;border-radius:8px;flex:1;min-height:0;overflow:auto;background:#fff;scrollbar-width:thin;scrollbar-color:#c8c8c6 transparent;scroll-behavior:smooth}
+.tw::-webkit-scrollbar{width:10px;height:10px}
+.tw::-webkit-scrollbar-track{background:transparent}
+.tw::-webkit-scrollbar-thumb{background:#c8c8c6;border-radius:6px;border:2px solid #fff;background-clip:padding-box}
+.tw::-webkit-scrollbar-thumb:hover{background:#a0a09e;background-clip:padding-box;border:2px solid #fff}
+.tw::-webkit-scrollbar-corner{background:transparent}
+.tw table{width:100%;border-collapse:collapse;table-layout:fixed}
+table{width:100%;border-collapse:collapse}
+thead th{background:#f0f0ee;padding:9px 10px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#555;border-bottom:1px solid #ddd;position:sticky;top:0;z-index:3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:inset 0 -1px 0 #ddd,0 1px 0 #ddd}
+thead th .col-resize-handle{position:absolute}
+.col-resize-handle{position:absolute;right:0;top:0;bottom:0;width:5px;cursor:col-resize;z-index:3;background:transparent}
+.col-resize-handle:hover,.col-resize-handle.active{background:rgba(41,128,185,0.4)}
+tr.dr{border-bottom:0.5px solid #eee;transition:background 0.12s ease}
+tr.dr:last-child{border-bottom:none}
+tr.dr:hover{background:#fafaf8}
+tr.dr.row-selected{background:#eef5ff}
+tr.dr.row-selected:hover{background:#e3eefd}
+td{padding:7px 10px;vertical-align:top;font-size:12px;overflow:hidden;word-break:break-word}
+td.asset-cell{background:#f7f7f5;border-right:0.5px solid #eee;font-size:12px;font-weight:500;line-height:1.5}
+.pfdot{display:inline-block;width:6px;height:6px;background:#c0392b;border-radius:50%;margin-left:4px;vertical-align:middle}
+.vn{color:#aaa;font-style:italic;font-size:12px}
+.vd{font-size:12px;line-height:1.5;word-break:break-all;margin-bottom:2px}
+.cy{font-size:9px;padding:1px 4px;border-radius:3px;background:#eee;color:#666;margin-left:3px;vertical-align:middle}
+.bdg{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:500}
+.b-ok{background:#eaf6ee;color:#1a7a35}.b-co{background:#fef5ea;color:#b06010}.b-fl{background:#fdecea;color:#b03030}.b-ig{background:#f0f0ee;color:#888}
+.sk{text-decoration:line-through;color:#999;font-size:11px;margin-left:5px}
+.reviewer-col{min-width:140px}
+.rev-cell-inner{padding:4px 0}
+.rev-who{font-size:9px;color:#aaa;margin-bottom:2px}
+.pending-cell{color:#ccc;font-size:11px;font-style:italic}
+.action-btns{display:flex;gap:4px;padding-top:2px;flex-wrap:wrap}
+.ib{width:24px;height:24px;border-radius:50%;border:none;cursor:pointer;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;transition:background 0.12s ease,transform 0.08s ease,box-shadow 0.12s ease}
+.ib:active,.ib-r:active,.ib-c:active{transform:scale(0.92)}
+.ib-r,.ib-c{transition:background 0.12s ease,transform 0.08s ease,box-shadow 0.12s ease}
+.ib-v{background:#eaf6ee;color:#1a7a35}.ib-v:hover{background:#c6ead2}
+.ib-x{background:#fdecea;color:#b03030}.ib-x:hover{background:#f9c5c2}
+.ib-i{background:#f5f0e0;color:#b08a20;border:1.5px solid #d4b84a}.ib-i:hover{background:#efe5c5}
+.ib-r{width:24px;height:24px;border-radius:50%;border:1.5px solid #a8c4e8;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;background:#e8f0fe;color:#2980b9}.ib-r:hover{background:#c5d8f8}
+.ib-c{width:24px;height:24px;border-radius:50%;border:1.5px solid #c9b3e8;cursor:pointer;font-size:10px;display:inline-flex;align-items:center;justify-content:center;background:#f3eeff;color:#7c4daa}.ib-c:hover{background:#e0ccf8}
+.ib-c.hc{background:#7c4daa;color:#fff;border-color:#7c4daa}
+.comment-block{margin-top:4px;padding:3px 7px;background:#f8f3ff;border-left:2px solid #c9b3e8;border-radius:0 3px 3px 0;font-size:11px;color:#5a2d8a;line-height:1.4;word-break:break-word}
+.pgn{font-size:11px;padding:2px 5px;background:#f0f0ee;border-radius:4px;color:#777}
+.page-link{cursor:pointer}.page-link:hover{background:#eef5ff;border-radius:3px}
+.footer{margin-top:8px;font-size:11px;color:#000;text-align:right}
+.empty-msg{text-align:center;padding:40px;color:#aaa;font-size:13px}
+.final-accept{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap}
+.fa-btn{padding:2px 8px;border:1px solid #bbb;border-radius:4px;font-size:10px;cursor:pointer;background:#fff}
+.fa-rv{border-color:#b06010;color:#b06010}.fa-rv:hover{background:#fef5ea}
+.fa-or{border-color:#2980b9;color:#2980b9}.fa-or:hover{background:#eef5ff}
+.bulk-bar{display:flex;align-items:center;gap:7px;padding:7px 12px;background:#e8f0fe;border:1px solid #a8c4e8;border-radius:6px;margin-bottom:10px;flex-wrap:wrap}
+.bulk-bar span{font-size:12px;font-weight:600;color:#2980b9}
+.bulk-bar button{padding:3px 9px;border:1px solid #bbb;border-radius:5px;background:#fff;cursor:pointer;font-size:11px;color:#333}
+.bulk-bar button:hover{background:#f0f0ee}
+.bb-v{border-color:#1a7a35!important;color:#1a7a35!important}.bb-v:hover{background:#eaf6ee!important}
+.bb-i{border-color:#b08a20!important;color:#b08a20!important}.bb-i:hover{background:#f5f0e0!important}
+.bb-x{border-color:#b03030!important;color:#b03030!important}.bb-x:hover{background:#fdecea!important}
+.bb-c{border-color:#7c4daa!important;color:#7c4daa!important}.bb-c:hover{background:#f3eeff!important}
+.bb-r{border-color:#2980b9!important;color:#2980b9!important}.bb-r:hover{background:#dbeafe!important}
+.bb-clr{margin-left:auto!important;border-color:#999!important;color:#999!important}
+.row-cb{width:14px;height:14px;cursor:pointer;accent-color:#2980b9}
+
+/* Modals */
+#overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.42);z-index:60;align-items:center;justify-content:center}
+#overlay.open{display:flex}
+#mbox{background:#fff;border-radius:12px;border:0.5px solid #ddd;padding:22px 24px;width:420px;max-width:92%}
+.mhdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
+.masset-lbl{font-size:11px;color:#888;margin-bottom:2px}
+.mfield-lbl{font-size:15px;font-weight:500}
+.mcls-btn{width:26px;height:26px;border-radius:50%;border:0.5px solid #ccc;background:transparent;cursor:pointer;font-size:14px;color:#777;display:flex;align-items:center;justify-content:center}
+.mcls-btn:hover{background:#f5f5f3}
+.mlbl{font-size:11px;color:#666;margin-bottom:5px}
+.mcur{font-size:12px;font-family:'Menlo',monospace;padding:8px 10px;background:#f5f5f3;border-radius:6px;margin-bottom:14px;word-break:break-all}
+.minp{width:100%;padding:8px 10px;border:0.5px solid #ccc;border-radius:6px;font-size:13px;background:#fff;color:#111;outline:none;margin-bottom:4px}
+.minp:focus{border-color:#2980b9}
+.merr{font-size:11px;color:#b03030;margin-bottom:12px;display:none}
+.macts{display:flex;gap:8px;justify-content:flex-end}
+.mcan{padding:7px 16px;border:0.5px solid #ccc;border-radius:6px;background:transparent;cursor:pointer;font-size:12px;color:#666}
+.mclr-btn{padding:7px 16px;border:0.5px solid #e0a0a0;border-radius:6px;background:transparent;cursor:pointer;font-size:12px;color:#b03030}
+.msav{padding:7px 16px;border:none;border-radius:6px;background:#2980b9;color:#fff;cursor:pointer;font-size:12px;font-weight:500}
+.msav:hover{background:#1f6fa0}
+
+/* New Run Modal */
+#newRunModal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.42);z-index:60;align-items:center;justify-content:center;overflow:auto}
+#newRunModal.open{display:flex}
+.nrm-box{background:#fff;border-radius:12px;border:0.5px solid #ddd;padding:24px;width:520px;max-width:95%;max-height:90vh;overflow-y:auto}
+.nrm-box h3{font-size:15px;font-weight:600;margin-bottom:18px}
+.nrm-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:0}
+.nrm-field{margin-bottom:14px}
+.drop-zone{border:2px dashed #ccc;border-radius:8px;padding:22px;text-align:center;cursor:pointer;color:#aaa;margin-bottom:14px;transition:all 0.15s}
+.drop-zone.dragover,.drop-zone:hover{border-color:#2980b9;color:#2980b9;background:#eef5ff}
+.drop-zone.has-file{border-color:#1a7a35;color:#1a7a35;background:#eaf6ee}
+.pdf-drop-zone{border:2px dashed #ccc;border-radius:8px;padding:14px;text-align:center;cursor:pointer;color:#aaa;margin-bottom:16px;transition:all 0.15s;font-size:12px}
+.pdf-drop-zone.has-file{border-color:#2980b9;color:#2980b9;background:#eef5ff}
+.pdf-drop-zone:hover{border-color:#aaa}
+.nrm-sep{font-size:10px;font-weight:600;color:#aaa;text-transform:uppercase;letter-spacing:.05em;margin:10px 0 14px;border-top:1px solid #f0f0ee;padding-top:14px}
+
+/* Toaster */
+#toaster{position:fixed;bottom:20px;right:20px;z-index:99;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{padding:10px 16px;border-radius:8px;font-size:12px;font-weight:500;box-shadow:0 4px 18px rgba(0,0,0,0.18);animation:slideIn 0.25s cubic-bezier(.2,.8,.2,1);pointer-events:none;letter-spacing:0.01em}
+.toast-info{background:#111;color:#fff}.toast-ok{background:#1a7a35;color:#fff}.toast-err{background:#b03030;color:#fff}
+@keyframes slideIn{from{transform:translateX(30px);opacity:0}to{transform:translateX(0);opacity:1}}
+/* ── Golden Copy Viewer ─────────────────────────────────────────────────── */
+#gcViewModal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:70;align-items:center;justify-content:center}
+#gcViewModal.open{display:flex}
+.gcv-box{background:#fff;border-radius:14px;border:1px solid #e0e0de;width:min(900px,96vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18)}
+.gcv-header{padding:18px 24px 14px;border-bottom:1px solid #e5e5e3;flex-shrink:0;background:#fff}
+.gcv-header h3{font-size:15px;font-weight:600;margin-bottom:2px}
+.gcv-meta{font-size:11px;color:#888;margin-bottom:12px}
+.gcv-header-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.gcv-tabs{display:flex;gap:4px}
+.gcv-tab{padding:5px 16px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;font-size:12px;color:#555;font-weight:500}
+.gcv-tab.active{background:#2980b9;color:#fff;border-color:#2980b9}
+.gcv-actions{display:flex;gap:8px;align-items:center}
+.gcv-dl-btn{padding:5px 13px;border:1px solid #2980b9;border-radius:6px;background:#fff;color:#2980b9;cursor:pointer;font-size:12px;font-weight:500}
+.gcv-dl-btn:hover{background:#eef5ff}
+.gcv-close-btn{padding:5px 13px;border:1px solid #ddd;border-radius:6px;background:transparent;cursor:pointer;font-size:12px;color:#555}
+.gcv-close-btn:hover{background:#f5f5f3}
+.gcv-body{flex:1;overflow:auto}
+.gcv-table{width:100%;border-collapse:collapse}
+.gcv-table th{background:#f5f5f3;padding:8px 14px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#666;border-bottom:1px solid #e5e5e3;position:sticky;top:0;z-index:1}
+.gcv-table td{padding:9px 14px;font-size:12px;border-bottom:1px solid #f0f0ee;vertical-align:top;color:#222}
+.gcv-table tr:last-child td{border-bottom:none}
+.gcv-table tr.gcv-corrected td{background:#fef9f0}
+.gcv-badge{display:inline-block;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:600}
+.gcv-badge.validated{background:#eaf6ee;color:#1a7a35}
+.gcv-badge.corrected{background:#fef0d8;color:#b06010}
+.gcv-badge.ignored{background:#f0f0ee;color:#888}
+.gcv-empty{padding:48px;text-align:center;color:#bbb;font-style:italic;font-size:13px}
+
+/* ═══ DARK MODE TOGGLE ══════════════════════════════════════════════════════ */
+.dm-toggle{width:30px;height:30px;border-radius:50%;border:1px solid #e0e0de;background:transparent;cursor:pointer;font-size:14px;display:inline-flex;align-items:center;justify-content:center;transition:background 0.15s,border-color 0.15s,transform 0.12s;flex-shrink:0;line-height:1;padding:0}
+.dm-toggle:hover{background:#f0f0ee;border-color:#c0c0be;transform:scale(1.1)}
+.dm-toggle:active{transform:scale(0.92)}
+html.dk-transition *,html.dk-transition *::before,html.dk-transition *::after{transition:background-color 0.28s ease,color 0.22s ease,border-color 0.22s ease,box-shadow 0.22s ease !important}
+
+/* ═══ DARK MODE OVERRIDES ═══════════════════════════════════════════════════ */
+[data-theme="dark"]{color-scheme:dark}
+[data-theme="dark"] body{background:linear-gradient(160deg,#0d253e 0%,#184b78 100%);color:#eeeef4;min-height:100vh}
+[data-theme="dark"] #loginScreen{background:linear-gradient(160deg,#0d253e 0%,#184b78 100%)}
+[data-theme="dark"] .login-card{background:linear-gradient(145deg,#1c1c2e 0%,#14141c 100%);border-color:#2a2a3c;box-shadow:0 4px 32px rgba(0,0,0,0.6)}
+[data-theme="dark"] .login-card h1{color:#eeeef4}
+[data-theme="dark"] .login-card .sub{color:#464660}
+[data-theme="dark"] .lbl{color:#686888}
+[data-theme="dark"] .inp{background:#0d0d14;border-color:#30303e;color:#eeeef4}
+[data-theme="dark"] .inp:hover{border-color:#484860}
+[data-theme="dark"] .inp:focus{border-color:#4daee8;box-shadow:0 0 0 3px rgba(77,174,232,0.14)}
+[data-theme="dark"] .inp option{background:#14141c;color:#eeeef4}
+[data-theme="dark"] .login-err{color:#f07878}
+[data-theme="dark"] .btn-primary{background:linear-gradient(135deg,#3898d8 0%,#2878b8 100%)}
+[data-theme="dark"] .btn-primary:hover{background:linear-gradient(135deg,#4aa8e8 0%,#3088c8 100%);box-shadow:0 2px 12px rgba(77,174,232,0.35)}
+[data-theme="dark"] .btn-primary:disabled{background:#182840;color:#304060}
+[data-theme="dark"] .main-topbar{background:linear-gradient(90deg,#1c1c2e 0%,#14141e 60%,#161624 100%);border-color:#252534}
+[data-theme="dark"] .main-topbar h2{color:#eeeef4}
+[data-theme="dark"] .nav-tab{color:#686888}
+[data-theme="dark"] .nav-tab:hover{background:#1e1e2e;color:#eeeef4}
+[data-theme="dark"] .nav-tab.active{background:linear-gradient(135deg,#3898d8 0%,#2878b8 100%);color:#fff}
+[data-theme="dark"] .user-pill{color:#686888}
+[data-theme="dark"] .user-dot{background:#4daee8}
+[data-theme="dark"] .back-btn{border-color:#252534;color:#686888;background:transparent}
+[data-theme="dark"] .back-btn:hover{background:#1e1e2e}
+[data-theme="dark"] .dm-toggle{border-color:#252534}
+[data-theme="dark"] .dm-toggle:hover{background:#1e1e2e;border-color:#30303e}
+[data-theme="dark"] .main-body{background:linear-gradient(160deg,#0d253e 0%,#184b78 100%)}
+[data-theme="dark"] #statsPanel{background:transparent}
+[data-theme="dark"] .stats-hero{background:linear-gradient(135deg,#0c1e32 0%,#103356 40%,#1a5282 100%)}
+[data-theme="dark"] .stats-filters{background:linear-gradient(135deg,#1a1a2c 0%,#14141c 100%);border-color:#252534}
+[data-theme="dark"] .stats-filters label{color:#464660}
+[data-theme="dark"] .stats-filters select,[data-theme="dark"] .stats-filters input[type=date]{background:#0d0d14;border-color:#30303e;color:#eeeef4;color-scheme:dark}
+[data-theme="dark"] .stats-quick-btn{border-color:#252534;color:#686888;background:transparent}
+[data-theme="dark"] .stats-quick-btn:hover,[data-theme="dark"] .stats-quick-btn.on{background:linear-gradient(135deg,#3898d8 0%,#2878b8 100%);border-color:#3898d8;color:#fff}
+[data-theme="dark"] .stats-refresh{background:linear-gradient(135deg,#3898d8 0%,#2878b8 100%);border-color:#2878b8}
+[data-theme="dark"] .stats-refresh:hover{background:linear-gradient(135deg,#4aa8e8 0%,#3088c8 100%)}
+[data-theme="dark"] .stats-body{background:transparent}
+[data-theme="dark"] .stat-card{background:linear-gradient(145deg,#1c1c2e 0%,#14141c 100%);border-color:#252534}
+[data-theme="dark"] .stat-card .sc-lbl{color:#464660}
+[data-theme="dark"] .stat-card .sc-val{color:#eeeef4}
+[data-theme="dark"] .stat-card .sc-sub{color:#383852}
+[data-theme="dark"] .sc-val.blue{color:#4daee8}
+[data-theme="dark"] .sc-val.green{color:#32d464}
+[data-theme="dark"] .sc-val.orange{color:#e09428}
+[data-theme="dark"] .sc-val.red{color:#e04848}
+[data-theme="dark"] .chart-card{background:linear-gradient(145deg,#1c1c2e 0%,#14141c 100%);border-color:#252534}
+[data-theme="dark"] .chart-card h4{color:#c0c0d8}
+[data-theme="dark"] .chart-card .ch-sub{color:#464660}
+[data-theme="dark"] .progress-header .p-name{color:#a0a0c0}
+[data-theme="dark"] .progress-header .p-pct{color:#4daee8}
+[data-theme="dark"] .progress-bar-bg{background:#1c1c2a}
+[data-theme="dark"] #runsPanel{background:transparent}
+[data-theme="dark"] .runs-toolbar input{background:#0d0d14;border-color:#30303e;color:#eeeef4}
+[data-theme="dark"] .runs-toolbar input:hover{border-color:#484860}
+[data-theme="dark"] .runs-toolbar input:focus{border-color:#4daee8;box-shadow:0 0 0 3px rgba(77,174,232,0.12)}
+[data-theme="dark"] .runs-filter-sel{background:#0d0d14;border-color:#30303e;color:#eeeef4}
+[data-theme="dark"] .runs-filter-sel:hover,[data-theme="dark"] .runs-filter-sel:focus{border-color:#4daee8}
+[data-theme="dark"] .runs-table-wrap{background:linear-gradient(180deg,#1a1a2c 0%,#14141c 100%);border-color:#252534}
+[data-theme="dark"] .runs-table-wrap thead th{background:#1c1c2e;color:#686888;border-color:#252534}
+[data-theme="dark"] .runs-table-wrap thead th:hover{background:#252538;color:#c0c0d8}
+[data-theme="dark"] .runs-table-wrap thead th.sorted .sort-arrow{color:#4daee8}
+[data-theme="dark"] .runs-table-wrap tbody tr{border-color:#1c1c2a}
+[data-theme="dark"] .runs-table-wrap tbody tr:hover{background:rgba(77,174,232,0.05)}
+[data-theme="dark"] .runs-table-wrap tbody td{color:#a0a0c0}
+[data-theme="dark"] .runs-table-wrap tbody td.empty-td{color:#383852}
+[data-theme="dark"] .rt-client{color:#6aacdc}
+[data-theme="dark"] .rt-meta{color:#464660}
+[data-theme="dark"] .s-ip{background:#251c06;color:#d49428}
+[data-theme="dark"] .s-ap{background:#0a2016;color:#32d464}
+[data-theme="dark"] #configPanel,[data-theme="dark"] #pendingPanel{background:transparent}
+[data-theme="dark"] .pending-drop-zone{border-color:#30303e;color:#464660;background:linear-gradient(145deg,#1a1a2c 0%,#14141c 100%)}
+[data-theme="dark"] .pending-drop-zone:hover,[data-theme="dark"] .pending-drop-zone.dragover{border-color:#4daee8;color:#4daee8;background:#0c1828}
+[data-theme="dark"] .config-section{background:linear-gradient(145deg,#1a1a2c 0%,#14141c 100%);border-color:#252534}
+[data-theme="dark"] .config-section-header{border-color:#252534}
+[data-theme="dark"] .config-section-header h3{color:#c0c0d8}
+[data-theme="dark"] .config-table th{background:#1c1c2e;color:#464660;border-color:#252534}
+[data-theme="dark"] .config-table td{border-color:#1c1c2a;color:#a0a0c0}
+[data-theme="dark"] .config-table tr:hover td{background:rgba(77,174,232,0.05)}
+[data-theme="dark"] .config-empty{color:#383852}
+[data-theme="dark"] .cfg-edit-btn{border-color:#182c46;color:#4daee8;background:transparent}
+[data-theme="dark"] .cfg-edit-btn:hover{background:#0c1828}
+[data-theme="dark"] .cfg-del-btn{border-color:#3c1818;color:#e04848;background:transparent}
+[data-theme="dark"] .cfg-del-btn:hover{background:#200c0c}
+[data-theme="dark"] .panel-left{background:linear-gradient(180deg,#191928 0%,#14141c 100%);border-color:#252534}
+[data-theme="dark"] .panel-right{background:linear-gradient(160deg,#0d253e 0%,#184b78 100%)}
+[data-theme="dark"] .divider{background:#252534}
+[data-theme="dark"] .divider:hover,[data-theme="dark"] .divider.active{background:#484860}
+[data-theme="dark"] .doc-header{background:linear-gradient(90deg,#1e1e30 0%,#1a1a28 100%);border-color:#252534}
+[data-theme="dark"] .doc-header h3{color:#a0a0c0}
+[data-theme="dark"] .doc-tabs{background:linear-gradient(90deg,#1e1e30 0%,#1a1a28 100%);border-color:#252534}
+[data-theme="dark"] .doc-tab{color:#464660}
+[data-theme="dark"] .doc-tab.active{color:#eeeef4;border-bottom-color:#4daee8}
+[data-theme="dark"] .doc-tab .cls:hover{background:#30303e;color:#eeeef4}
+[data-theme="dark"] .doc-body{background:#14141c}
+[data-theme="dark"] .upload-zone{background:linear-gradient(145deg,#1a1a2c 0%,#14141c 100%)}
+[data-theme="dark"] .upload-zone h4{color:#686888}
+[data-theme="dark"] .upload-zone p{color:#464660}
+[data-theme="dark"] .text-viewer{background:#14141c;color:#a0a0c0}
+[data-theme="dark"] .pdf-controls{background:rgba(0,0,0,0.9)}
+[data-theme="dark"] .review-topbar{background:linear-gradient(90deg,#1c1c2e 0%,#14141e 60%,#161624 100%);border-color:#252534}
+[data-theme="dark"] .rt-fname{color:#eeeef4}
+[data-theme="dark"] .op-reviewer{background:#1e1606;color:#d49428;border-color:#3c2c06}
+[data-theme="dark"] .op-validator{background:#101428;color:#6878d8;border-color:#20286c}
+[data-theme="dark"] .right-scroll{background:linear-gradient(160deg,#0d253e 0%,#184b78 100%)}
+[data-theme="dark"] .tw{border-color:#252534;background:linear-gradient(180deg,#191928 0%,#14141c 100%);scrollbar-color:#282840 transparent}
+[data-theme="dark"] .tw::-webkit-scrollbar-thumb{background:#282840;border-color:#14141c}
+[data-theme="dark"] .tw thead th{background:linear-gradient(90deg,#1e1e30 0%,#1a1a2c 100%);color:#585878;border-color:#252534;box-shadow:inset 0 -1px 0 #252534,0 1px 0 #252534}
+[data-theme="dark"] tr.dr{border-color:#1c1c2a}
+[data-theme="dark"] tr.dr:hover{background:rgba(77,174,232,0.05)}
+[data-theme="dark"] tr.dr.row-selected{background:#101e3c}
+[data-theme="dark"] tr.dr.row-selected:hover{background:#162848}
+[data-theme="dark"] td{color:#a0a0c0}
+[data-theme="dark"] td.asset-cell{background:#14141e;border-color:#1c1c2a;color:#8888a8}
+[data-theme="dark"] .vn{color:#383852}
+[data-theme="dark"] .pgn{background:#1c1c2a;color:#585878}
+[data-theme="dark"] .page-link:hover{background:#0c1828}
+[data-theme="dark"] .footer{color:#000}
+[data-theme="dark"] .empty-msg{color:#383852}
+[data-theme="dark"] .pfdot{background:#e04848}
+[data-theme="dark"] .pending-cell{color:#383852}
+[data-theme="dark"] .b-ok{background:#0a2016;color:#32d464}
+[data-theme="dark"] .b-co{background:#201806;color:#e09428}
+[data-theme="dark"] .b-fl{background:#220c0c;color:#e04848}
+[data-theme="dark"] .b-ig{background:#1c1c2a;color:#585878}
+[data-theme="dark"] .vd{color:#a0a0c0}
+[data-theme="dark"] .sk{color:#464660}
+[data-theme="dark"] .cy{background:#1c1c2a;color:#585878}
+[data-theme="dark"] .comment-block{background:linear-gradient(135deg,#1c1038 0%,#160e2c 100%);border-color:#5a3898;color:#b080e8}
+[data-theme="dark"] .ib-v{background:linear-gradient(135deg,#052808 0%,#031a05 100%);color:#11d421}
+[data-theme="dark"] .ib-v:hover{background:linear-gradient(135deg,#07380a 0%,#052008 100%)}
+[data-theme="dark"] .ib-x{background:linear-gradient(135deg,#2e0a04 0%,#1e0602 100%);color:#D42D11}
+[data-theme="dark"] .ib-x:hover{background:linear-gradient(135deg,#3a0e06 0%,#280804 100%)}
+[data-theme="dark"] .ib-i{background:linear-gradient(135deg,#2a2804 0%,#1c1a02 100%);color:#D4CB11;border-color:#4a4608}
+[data-theme="dark"] .ib-i:hover{background:linear-gradient(135deg,#363406 0%,#242204 100%)}
+[data-theme="dark"] .ib-r{background:linear-gradient(135deg,#102040 0%,#0c1830 100%);color:#4daee8;border-color:#1c3460}
+[data-theme="dark"] .ib-r:hover{background:linear-gradient(135deg,#162a50 0%,#102040 100%)}
+[data-theme="dark"] .ib-c{background:linear-gradient(135deg,#280830 0%,#1c0624 100%);color:#B911D4;border-color:#5a1068}
+[data-theme="dark"] .ib-c:hover{background:linear-gradient(135deg,#34103e 0%,#260a30 100%)}
+[data-theme="dark"] .ib-c.hc{background:linear-gradient(135deg,#8a10a8 0%,#700d90 100%);color:#fff;border-color:#B911D4}
+[data-theme="dark"] .fa-btn{background:linear-gradient(145deg,#1a1a2c 0%,#14141c 100%);border-color:#30303e;color:#686888}
+[data-theme="dark"] .fa-rv{border-color:#3c2808;color:#e09428}
+[data-theme="dark"] .fa-rv:hover{background:#1c1406}
+[data-theme="dark"] .fa-or{border-color:#182c46;color:#4daee8}
+[data-theme="dark"] .fa-or:hover{background:#0c1828}
+[data-theme="dark"] .sc{background:linear-gradient(145deg,#1c1c2e 0%,#16161e 100%);border-color:#252534}
+[data-theme="dark"] .sc:hover{background:linear-gradient(145deg,#222234 0%,#1a1a28 100%);border-color:#30303e}
+[data-theme="dark"] .sc.sc-active{background:linear-gradient(145deg,#0c1e38 0%,#081428 100%);border-color:#4daee8;box-shadow:0 0 0 2px rgba(77,174,232,0.15)}
+[data-theme="dark"] .sc.sc-active .sl{color:#4daee8}
+[data-theme="dark"] .sl{color:#464660}
+[data-theme="dark"] .sv{color:#eeeef4}
+[data-theme="dark"] .sv.r{color:#e04848}
+[data-theme="dark"] .sv.g{color:#32d464}
+[data-theme="dark"] .sf{background:#1c1c2a;border-color:#30303e;color:#a0a0c0}
+[data-theme="dark"] .sf:hover,[data-theme="dark"] .sf:focus{border-color:#4daee8}
+[data-theme="dark"] .mode-tabs{border-color:#252534}
+[data-theme="dark"] .mode-tab{background:#1c1c2a;color:#585878}
+[data-theme="dark"] .mode-tab:hover:not(.active){background:#252538;color:#eeeef4}
+[data-theme="dark"] .mode-tab.active{background:linear-gradient(135deg,#3898d8 0%,#2878b8 100%);color:#fff}
+[data-theme="dark"] .mode-tab:first-child{border-color:#252534}
+[data-theme="dark"] .fb{border-color:#6a1818;color:#e04848}
+[data-theme="dark"] .fb:hover:not(.on){background:#220c0c}
+[data-theme="dark"] .fb.on{background:linear-gradient(135deg,#a02020 0%,#801818 100%);color:#fff}
+[data-theme="dark"] .bulk-bar{background:linear-gradient(90deg,#121830 0%,#0e1428 100%);border-color:#1e2e48}
+[data-theme="dark"] .bulk-bar span{color:#4daee8}
+[data-theme="dark"] .bulk-bar button{background:#14141c;border-color:#30303e;color:#a0a0c0}
+[data-theme="dark"] .bulk-bar button:hover{background:#1c1c2a}
+[data-theme="dark"] .row-cb{accent-color:#3898d8}
+[data-theme="dark"] #overlay{background:rgba(0,0,0,0.75)}
+[data-theme="dark"] #mbox{background:linear-gradient(145deg,#1c1c2e 0%,#14141c 100%);border-color:#252534}
+[data-theme="dark"] .masset-lbl{color:#464660}
+[data-theme="dark"] .mfield-lbl{color:#eeeef4}
+[data-theme="dark"] .mcls-btn{border-color:#30303e;color:#585878}
+[data-theme="dark"] .mcls-btn:hover{background:#1c1c2a}
+[data-theme="dark"] .mlbl{color:#686888}
+[data-theme="dark"] .mcur{background:#1c1c2a;color:#a0a0c0}
+[data-theme="dark"] .minp{background:#0d0d14;border-color:#30303e;color:#eeeef4}
+[data-theme="dark"] .minp:focus{border-color:#4daee8}
+[data-theme="dark"] .mcan{border-color:#30303e;color:#585878;background:transparent}
+[data-theme="dark"] .mclr-btn{border-color:#4a1818;color:#e04848;background:transparent}
+[data-theme="dark"] .msav{background:linear-gradient(135deg,#3898d8 0%,#2878b8 100%)}
+[data-theme="dark"] .msav:hover{background:linear-gradient(135deg,#4aa8e8 0%,#3088c8 100%)}
+[data-theme="dark"] #mevidence{background:linear-gradient(135deg,#121830 0%,#0e1428 100%);border-color:#1e2e48}
+[data-theme="dark"] #newRunModal,[data-theme="dark"] #editRunModal{background:rgba(0,0,0,0.75)}
+[data-theme="dark"] .nrm-box{background:linear-gradient(145deg,#1c1c2e 0%,#14141c 100%);border-color:#252534}
+[data-theme="dark"] .nrm-box h3{color:#eeeef4}
+[data-theme="dark"] .nrm-sep{color:#464660;border-color:#252534}
+[data-theme="dark"] .drop-zone{border-color:#30303e;color:#464660;background:linear-gradient(145deg,#1a1a2c 0%,#14141c 100%)}
+[data-theme="dark"] .drop-zone.dragover,[data-theme="dark"] .drop-zone:hover{border-color:#4daee8;color:#4daee8;background:#0c1828}
+[data-theme="dark"] .drop-zone.has-file{border-color:#1e7040;color:#32d464;background:#0a1e14}
+[data-theme="dark"] .pdf-drop-zone{border-color:#30303e;color:#464660;background:linear-gradient(145deg,#1a1a2c 0%,#14141c 100%)}
+[data-theme="dark"] .pdf-drop-zone.has-file{border-color:#3898d8;color:#4daee8;background:#0c1828}
+[data-theme="dark"] .pdf-drop-zone:hover{border-color:#484860}
+[data-theme="dark"] #clientModal{background:rgba(0,0,0,0.75)}
+[data-theme="dark"] .cm-box{background:linear-gradient(145deg,#1c1c2e 0%,#14141c 100%);border-color:#252534}
+[data-theme="dark"] .cm-box h3{color:#eeeef4}
+[data-theme="dark"] .toast-info{background:linear-gradient(90deg,#1e1e30 0%,#1a1a28 100%);color:#eeeef4}
+[data-theme="dark"] #gcViewModal{background:rgba(0,0,0,0.8)}
+[data-theme="dark"] .gcv-box{background:linear-gradient(145deg,#1c1c2e 0%,#14141c 100%);border-color:#252534;box-shadow:0 8px 40px rgba(0,0,0,0.7)}
+[data-theme="dark"] .gcv-header{background:linear-gradient(90deg,#1e1e30 0%,#14141c 100%);border-color:#252534}
+[data-theme="dark"] .gcv-header h3{color:#eeeef4}
+[data-theme="dark"] .gcv-meta{color:#464660}
+[data-theme="dark"] .gcv-tab{background:#1c1c2a;border-color:#30303e;color:#686888}
+[data-theme="dark"] .gcv-tab.active{background:linear-gradient(135deg,#3898d8 0%,#2878b8 100%);border-color:#3898d8;color:#fff}
+[data-theme="dark"] .gcv-dl-btn{background:#14141c;border-color:#30303e;color:#6aacdc}
+[data-theme="dark"] .gcv-dl-btn:hover{background:#1c1c2a}
+[data-theme="dark"] .gcv-close-btn{border-color:#30303e;color:#585878;background:transparent}
+[data-theme="dark"] .gcv-close-btn:hover{background:#1c1c2a}
+[data-theme="dark"] .gcv-table th{background:#1c1c2e;color:#464660;border-color:#252534}
+[data-theme="dark"] .gcv-table td{border-color:#1c1c2a;color:#a0a0c0}
+[data-theme="dark"] .gcv-table tr.gcv-corrected td{background:#1a1206}
+[data-theme="dark"] .gcv-badge.validated{background:#0a2016;color:#32d464}
+[data-theme="dark"] .gcv-badge.corrected{background:#201806;color:#e09428}
+[data-theme="dark"] .gcv-badge.ignored{background:#1c1c2a;color:#585878}
+[data-theme="dark"] .gcv-empty{color:#383852}
+[data-theme="dark"] *::-webkit-scrollbar-thumb{background:#282840}
+[data-theme="dark"] html{scrollbar-color:#282840 transparent}
+[data-theme="dark"] ::selection{background:rgba(77,174,232,0.3)}
+[data-theme="dark"] :focus-visible{outline-color:rgba(77,174,232,0.6)}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="screen active" id="loginScreen">
+  <div class="login-card">
+    <h1>Extraction Reviewer</h1>
+    <p class="sub">Collaborative JSON review platform</p>
+    <div class="lbl">Select your name</div>
+    <select class="inp" id="loginName">
+      <option value="">Loading users…</option>
+    </select>
+    <div class="login-err" id="loginUsersErr" style="display:none">Couldn't load users — <a href="#" onclick="initLogin();return false" style="color:#b03030;text-decoration:underline">retry</a></div>
+    <div class="lbl">Password</div>
+    <div style="position:relative;margin-bottom:16px">
+      <input class="inp" id="loginPass" type="password" placeholder="Enter your password…" onkeydown="if(event.key==='Enter')doLogin()" style="padding-right:38px;width:100%;box-sizing:border-box;margin-bottom:0">
+      <button type="button" id="togglePass" onclick="(function(){const i=document.getElementById('loginPass');const b=document.getElementById('togglePass');i.type=i.type==='password'?'text':'password';b.textContent=i.type==='password'?'👁':'🙈'})()" style="position:absolute;right:10px;top:0;bottom:0;margin:auto;height:22px;width:22px;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1;opacity:0.65">👁</button>
+    </div>
+    <div class="login-err" id="loginErr">Incorrect password. Please try again.</div>
+    <button class="btn-primary" id="loginBtn" onclick="doLogin()" disabled>Sign In</button>
+  </div>
+</div>
+
+<!-- MAIN SCREEN (Stats + Runs) -->
+<div class="screen" id="mainScreen" style="flex-direction:column">
+  <div class="main-topbar">
+    <div style="display:flex;align-items:center;gap:0">
+      <h2>Extraction Reviewer</h2>
+      <div class="main-nav">
+        <button class="nav-tab active" id="tabStats" onclick="switchTab('stats')">Stats</button>
+        <button class="nav-tab" id="tabRuns" onclick="switchTab('runs')">Runs</button>
+        <button class="nav-tab" id="tabPending" onclick="switchTab('pending')">Pending <span id="pendingBadge" style="display:none;background:#f59e0b;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:3px"></span></button>
+        <button class="nav-tab" id="tabConfig" onclick="switchTab('config')">Config</button>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="user-pill"><div class="user-dot"></div><span id="mainUserLabel"></span></div>
+      <button class="dm-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">🌙</button>
+      <button class="back-btn" onclick="goLogin()">Change user</button>
+    </div>
+  </div>
+  <div class="main-body">
+    <!-- Stats Panel -->
+    <div id="statsPanel">
+      <!-- Hero bar -->
+      <div class="stats-hero" id="statsHero">
+        <div class="stats-hero-title">Overall Performance</div>
+        <div class="stats-hero-row">
+          <div>
+            <div class="stats-big-num" id="heroAutoVal">—</div>
+            <div class="stats-big-lbl">Auto-validated rate</div>
+          </div>
+          <div class="stats-hero-divider"></div>
+          <div class="stats-hero-mini" id="heroMini"></div>
+        </div>
+      </div>
+      <!-- Filters -->
+      <div class="stats-filters">
+        <div class="stats-filter-group">
+          <label>Client</label>
+          <select id="statsClientFilter" onchange="renderStats()">
+            <option value="ALL">All Clients</option>
+          </select>
+        </div>
+        <div class="stats-filter-group">
+          <label>Type</label>
+          <select id="statsDocFilter" onchange="renderStats()">
+            <option value="ALL">All Types</option>
+            <option value="annual_quarterly">Annual & Quarterly Report</option>
+            <option value="financials">Financials</option>
+          </select>
+        </div>
+        <div class="stats-filter-sep"></div>
+        <div class="stats-filter-group">
+          <label>From</label>
+          <input type="date" id="statsDateFrom" onchange="renderStats()">
+        </div>
+        <div class="stats-filter-group">
+          <label>To</label>
+          <input type="date" id="statsDateTo" onchange="renderStats()">
+        </div>
+        <button class="stats-quick-btn" onclick="setDateRange(7)">7d</button>
+        <button class="stats-quick-btn" onclick="setDateRange(30)">30d</button>
+        <button class="stats-quick-btn" onclick="setDateRange(90)">90d</button>
+        <button class="stats-quick-btn" onclick="setDateRange(0)">All</button>
+        <button class="stats-refresh" onclick="loadStatsData()">↻ Refresh</button>
+      </div>
+      <!-- Body -->
+      <div class="stats-body">
+        <div class="stats-cards" id="statsCards"></div>
+        <div class="stats-charts">
+          <div class="chart-card">
+            <h4>Review Actions</h4>
+            <div class="ch-sub">Breakdown of all decisions made</div>
+            <div class="chart-wrap"><canvas id="chartActions"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h4>Validation Rate by Client</h4>
+            <div class="ch-sub">% of fields auto-validated per client</div>
+            <div class="progress-list" id="clientProgressList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Runs Panel -->
+    <div id="runsPanel">
+      <div class="runs-toolbar">
+        <input type="text" id="runSearch" placeholder="Search runs, clients…" oninput="renderRunsPanel()">
+        <select class="runs-filter-sel" id="runsClientFilter" onchange="renderRunsPanel()">
+          <option value="ALL">All Clients</option>
+        </select>
+        <select class="runs-filter-sel" id="runsDocFilter" onchange="renderRunsPanel()">
+          <option value="ALL">All Types</option>
+          <option value="annual_quarterly">Annual & Quarterly Report</option>
+          <option value="financials">Financials</option>
+        </select>
+        <button class="btn-new-run" onclick="exportRunsExcel()" style="background:#1a7a35;margin-left:0">⬇ Export Excel</button>
+        <button class="btn-new-run" onclick="openNewRun(null,null)">+ New Run</button>
+      </div>
+      <div class="runs-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="setRunSort('client')">Client <span class="sort-arrow" id="sarr-client">▲</span></th>
+              <th onclick="setRunSort('doc_type')">Document Type <span class="sort-arrow" id="sarr-doc_type">▲</span></th>
+              <th onclick="setRunSort('run_date')">Run Date <span class="sort-arrow" id="sarr-run_date">▲</span></th>
+              <th onclick="setRunSort('account_id')">Account ID <span class="sort-arrow" id="sarr-account_id">▲</span></th>
+              <th onclick="setRunSort('security_id')">Security ID <span class="sort-arrow" id="sarr-security_id">▲</span></th>
+              <th onclick="setRunSort('fund_id')">Fund ID <span class="sort-arrow" id="sarr-fund_id">▲</span></th>
+              <th onclick="setRunSort('fund_name')">Fund Name <span class="sort-arrow" id="sarr-fund_name">▲</span></th>
+              <th>Status</th>
+              <th onclick="setRunSort('notes')">Notes <span class="sort-arrow" id="sarr-notes">▲</span></th>
+              <th style="cursor:default">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="runsTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Pending Panel -->
+    <div id="pendingPanel">
+      <div class="pending-drop-zone" id="pendingDropZone" onclick="document.getElementById('pendingFileInput').click()">
+        <div style="font-size:15px;margin-bottom:6px">Drop PDF + JSON pairs here</div>
+        <div style="font-size:11px;color:#bbb">Both files must have the same base name (e.g. <em>fund.pdf</em> + <em>fund.json</em>) · or <span style="color:#2980b9;text-decoration:underline">browse</span></div>
+      </div>
+      <input type="file" id="pendingFileInput" multiple accept=".json,.pdf" style="display:none">
+      <div class="runs-toolbar">
+        <span id="pendingCountLbl" style="font-size:13px;color:#666;min-width:140px"></span>
+        <button class="btn-new-run" id="importSelectedBtn" disabled onclick="importSelectedPending()">→ Move to In Process</button>
+        <button class="btn-new-run" style="background:#555;margin-left:0" onclick="loadPendingData()">↻ Refresh</button>
+      </div>
+      <div class="runs-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:32px;cursor:default"><input type="checkbox" id="pendingAllCb" onchange="toggleAllPending(this.checked)"></th>
+              <th>Name</th>
+              <th style="width:90px">PDF</th>
+              <th style="width:140px">Added</th>
+              <th style="width:150px;cursor:default">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="pendingTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Config Panel -->
+    <div id="configPanel">
+      <div class="config-section">
+        <div class="config-section-header">
+          <h3>Clients</h3>
+          <button class="btn-add-config" onclick="openClientModal()">+ Add Client</button>
+        </div>
+        <div id="configClientsList">
+          <div class="config-empty">No clients configured yet.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CLIENT MODAL -->
+<div id="clientModal">
+  <div class="cm-box">
+    <h3 id="cmTitle">Add Client</h3>
+    <div class="lbl">Client name *</div>
+    <input class="inp" id="cmName" placeholder="e.g. Acme Corp" onkeydown="if(event.key==='Enter')saveClient()">
+    <div class="lbl">Description (optional)</div>
+    <input class="inp" id="cmDesc" placeholder="Short description…" style="margin-bottom:4px">
+    <div class="merr" id="cmErr" style="display:none">Client name is required.</div>
+    <div class="macts" style="margin-top:12px">
+      <button class="mcan" onclick="closeClientModal()">Cancel</button>
+      <button class="msav" onclick="saveClient()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- NEW RUN MODAL -->
+<div id="newRunModal">
+  <div class="nrm-box">
+    <h3>Create New Review Run</h3>
+    <div class="nrm-row">
+      <div class="nrm-field">
+        <div class="lbl">Client name *</div>
+        <input class="inp" id="nrmClient" list="clientsList_dl" placeholder="e.g. Acme Corp" style="margin-bottom:0">
+        <datalist id="clientsList_dl"></datalist>
+      </div>
+      <div class="nrm-field">
+        <div class="lbl">Document type *</div>
+        <select class="inp" id="nrmDocType" style="margin-bottom:0">
+          <option value="">— Select type —</option>
+          <option value="annual_quarterly">Annual & Quarterly Report</option>
+          <option value="financials">Financials</option>
+        </select>
+      </div>
+    </div>
+    <div class="nrm-row">
+      <div class="nrm-field">
+        <div class="lbl">Account ID</div>
+        <input class="inp" id="nrmAccountId" placeholder="e.g. ACC-001" style="margin-bottom:0">
+      </div>
+      <div class="nrm-field">
+        <div class="lbl">Security ID</div>
+        <input class="inp" id="nrmSecurityId" placeholder="e.g. SEC-001" style="margin-bottom:0">
+      </div>
+    </div>
+    <div class="nrm-row">
+      <div class="nrm-field">
+        <div class="lbl">Fund ID</div>
+        <input class="inp" id="nrmFundId" placeholder="e.g. FUND-001" style="margin-bottom:0">
+      </div>
+      <div class="nrm-field">
+        <div class="lbl">Run date *</div>
+        <input class="inp" id="nrmRunDate" type="date" style="margin-bottom:0">
+      </div>
+    </div>
+    <div class="nrm-field" style="margin-top:4px">
+      <div class="lbl">Fund Name</div>
+      <input class="inp" id="nrmFundName" placeholder="Auto-filled from JSON" style="margin-bottom:0">
+    </div>
+    <div class="nrm-sep">Upload Files</div>
+    <div class="lbl">JSON file *</div>
+    <div class="drop-zone" id="nrmDrop" onclick="document.getElementById('nrmFile').click()">
+      <div style="font-size:22px;margin-bottom:6px">📂</div>
+      <div style="font-size:13px">Click to browse or drag & drop</div>
+      <div style="font-size:11px;margin-top:4px">JSON files only</div>
+    </div>
+    <input type="file" id="nrmFile" accept=".json" style="display:none">
+    <div class="lbl">PDF document (optional)</div>
+    <div class="pdf-drop-zone" id="nrmPdfDrop" onclick="document.getElementById('nrmPdfFile').click()">
+      <span id="nrmPdfLabel">Click to attach a PDF document (optional)</span>
+    </div>
+    <input type="file" id="nrmPdfFile" accept=".pdf" style="display:none">
+    <div class="macts">
+      <button class="mcan" onclick="closeNewRun()">Cancel</button>
+      <button class="msav" id="nrmCreate" onclick="createRun()" disabled>Create Run</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT RUN MODAL -->
+<div id="editRunModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.42);z-index:60;align-items:center;justify-content:center;overflow:auto">
+  <div class="nrm-box">
+    <h3>Edit Run</h3>
+    <div class="nrm-row">
+      <div class="nrm-field">
+        <div class="lbl">Client name *</div>
+        <input class="inp" id="ermClient" list="clientsList_dl" placeholder="e.g. Acme Corp" style="margin-bottom:0">
+      </div>
+      <div class="nrm-field">
+        <div class="lbl">Document type *</div>
+        <select class="inp" id="ermDocType" style="margin-bottom:0">
+          <option value="">— Select type —</option>
+          <option value="annual_quarterly">Annual & Quarterly Report</option>
+          <option value="financials">Financials</option>
+        </select>
+      </div>
+    </div>
+    <div class="nrm-row">
+      <div class="nrm-field">
+        <div class="lbl">Account ID</div>
+        <input class="inp" id="ermAccountId" placeholder="e.g. ACC-001" style="margin-bottom:0">
+      </div>
+      <div class="nrm-field">
+        <div class="lbl">Security ID</div>
+        <input class="inp" id="ermSecurityId" placeholder="e.g. SEC-001" style="margin-bottom:0">
+      </div>
+    </div>
+    <div class="nrm-row">
+      <div class="nrm-field">
+        <div class="lbl">Fund ID</div>
+        <input class="inp" id="ermFundId" placeholder="e.g. FUND-001" style="margin-bottom:0">
+      </div>
+      <div class="nrm-field">
+        <div class="lbl">Run date *</div>
+        <input class="inp" id="ermRunDate" type="date" style="margin-bottom:0">
+      </div>
+    </div>
+    <div class="nrm-field" style="margin-top:4px">
+      <div class="lbl">Fund Name</div>
+      <input class="inp" id="ermFundName" placeholder="e.g. Apollo Investment Fund X, L.P." style="margin-bottom:0">
+    </div>
+    <div class="nrm-field" style="margin-top:4px">
+      <div class="lbl">Notes</div>
+      <textarea class="inp" id="ermNotes" rows="3" placeholder="Optional notes…" style="margin-bottom:0;resize:vertical"></textarea>
+    </div>
+    <div class="merr" id="ermErr" style="display:none;margin-top:8px">Client name and date are required.</div>
+    <div class="macts" style="margin-top:16px">
+      <button class="mcan" onclick="closeEditRunModal()">Cancel</button>
+      <button class="msav" onclick="saveEditRun()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- REVIEW SCREEN -->
+<div class="screen" id="reviewScreen">
+  <div class="panel panel-left" id="panelLeft">
+    <div class="doc-header">
+      <h3>Documents</h3>
+      <button class="sm-btn" onclick="document.getElementById('fileInput').click()" style="padding:3px 10px;font-size:10px">+ Add</button>
+    </div>
+    <div class="doc-tabs" id="docTabs"></div>
+    <div class="doc-body" id="docBody">
+      <div class="upload-zone" id="uploadZone">
+        <h4>Upload source documents</h4>
+        <p>Drop PDFs or images here to view alongside extracted data.</p>
+        <button class="sm-btn" onclick="document.getElementById('fileInput').click()">Choose files</button>
+      </div>
+    </div>
+    <input type="file" id="fileInput" multiple accept=".pdf,.json,.txt,.csv,.png,.jpg,.jpeg,.gif,.webp,.svg" style="display:none">
+  </div>
+  <div class="divider" id="divider"></div>
+  <div class="panel panel-right">
+    <div class="review-topbar">
+      <div class="rt-left">
+        <div class="rt-fname" id="rtFname">Loading…</div>
+        <div class="rt-meta" id="rtMeta"></div>
+      </div>
+      <div class="rt-actions">
+        <div class="online-pills" id="onlinePills"></div>
+        <button class="dm-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">🌙</button>
+        <button class="back-btn" onclick="leaveRun()">← Runs</button>
+      </div>
+    </div>
+    <div class="right-scroll" id="rightScroll">
+      <div id="app"></div>
+    </div>
+  </div>
+</div>
+
+<!-- CORRECTION / COMMENT MODAL -->
+<div id="overlay" onclick="if(event.target===this)closeM()">
+  <div id="mbox">
+    <div class="mhdr">
+      <div><div class="masset-lbl" id="masset"></div><div class="mfield-lbl" id="mfield"></div></div>
+      <button class="mcls-btn" onclick="closeM()">✕</button>
+    </div>
+    <div id="mcurSection">
+      <div class="mlbl">Current extracted value</div>
+      <div class="mcur" id="mcur"></div>
+    </div>
+    <div id="mevidence" style="display:none;margin-bottom:12px;padding:7px 10px;background:#f0f5ff;border-radius:6px;border:1px solid #c8daf5;font-size:12px;align-items:center;gap:8px"></div>
+    <div class="mlbl" id="minpLbl">Corrected value</div>
+    <input class="minp" id="minp" type="text" placeholder="Enter value…" onkeydown="if(event.key==='Enter')saveM()">
+    <div class="merr" id="merr">Please enter a value.</div>
+    <div class="macts">
+      <button class="mcan" onclick="closeM()">Cancel</button>
+      <button class="mclr-btn" id="mclr" style="display:none" onclick="clearComment()">✕ Clear</button>
+      <button class="msav" id="msav" onclick="saveM()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="toaster"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+// ═══ STATE ═══════════════════════════════════════════════════════════════════
+let currentUser = null;
+let currentRun  = null;
+let ws          = null;
+let activeUsers = [];
+let runJson = null;
+let MODE = 'fund';
+let fFields = [], fValues = {}, fINC = {};
+let aF = [], aAN = {}, aDN = {}, aV = {}, aINC = {}, aSORTF = [];
+let fPeriods = {}, aPeriods = {};
+let reviews = {};
+
+// ═══ PERIOD MAPPING (from Period-to-Field-Mapping.xlsx) ═════════════════════
+// Five group-period identifiers — never shown as rows, only used to look up
+// the period for fields that belong to each group.
+const PERIOD_IDENTIFIERS = new Set([
+  'returnMetricsPeriod','capitalActivityPeriod','operatingMetricsPeriod',
+  'creditRatiosPeriod','balanceSheetPeriod'
+]);
+// Fund-level field identifier → metric-group period identifier.
+const FUND_FIELD_GROUP = {
+  // Return Metrics
+  reportedGrossIrr:'returnMetricsPeriod', reportedNetIrr:'returnMetricsPeriod',
+  reportedGrossDpi:'returnMetricsPeriod', reportedGrossMoic:'returnMetricsPeriod',
+  reportedNetMoic:'returnMetricsPeriod', reportedGrossRvpi:'returnMetricsPeriod',
+  reportedNetRvpi:'returnMetricsPeriod', reportedGrossTvpi:'returnMetricsPeriod',
+  reportedTwr:'returnMetricsPeriod', reportedNetTvpi:'returnMetricsPeriod',
+  evEbitda:'returnMetricsPeriod',
+  // Capital Activity
+  capitalCalled:'capitalActivityPeriod', capitalDistributed:'capitalActivityPeriod',
+  investedCapital:'capitalActivityPeriod', unfundedCommitments:'capitalActivityPeriod',
+  // Operating Metrics
+  revenue:'operatingMetricsPeriod', ebitda:'operatingMetricsPeriod',
+  // Balance Sheet (no period value shown)
+  nav:'balanceSheetPeriod', totalAssets:'balanceSheetPeriod',
+  totalLiabilities:'balanceSheetPeriod', unrealizedValue:'balanceSheetPeriod',
+  totalCommitments:'balanceSheetPeriod',
+  totalEnterpriseValueTev:'balanceSheetPeriod', netDebt:'balanceSheetPeriod'
+};
+// Asset-level field identifier → metric-group period identifier.
+const ASSET_FIELD_GROUP = {
+  // Balance Sheet (no period value shown)
+  unrealizedValue:'balanceSheetPeriod', reportedNetNav:'balanceSheetPeriod',
+  fundedAmount:'balanceSheetPeriod', totalDebt:'balanceSheetPeriod',
+  netDebt:'balanceSheetPeriod', totalEquity:'balanceSheetPeriod',
+  totalEnterpriseValueTev:'balanceSheetPeriod', netSeniorDebt:'balanceSheetPeriod',
+  outstandingPrincipalAmount:'balanceSheetPeriod', committedCapital:'balanceSheetPeriod',
+  // Operating Metrics
+  ebit:'operatingMetricsPeriod', ebitda:'operatingMetricsPeriod',
+  grossMargin:'operatingMetricsPeriod', netIncome:'operatingMetricsPeriod',
+  operatingCashFlow:'operatingMetricsPeriod', revenueNetSales:'operatingMetricsPeriod',
+  netOperatingIncomeNoi:'operatingMetricsPeriod', capRate:'operatingMetricsPeriod',
+  currentYield:'operatingMetricsPeriod', growthEbitda:'operatingMetricsPeriod',
+  growthNetDebt:'operatingMetricsPeriod', growthRevenue:'operatingMetricsPeriod',
+  growthTotalDebt:'operatingMetricsPeriod', capex:'operatingMetricsPeriod',
+  evEbitda:'operatingMetricsPeriod',
+  // Credit Ratios
+  allInYieldAiy:'creditRatiosPeriod', dscr:'creditRatiosPeriod',
+  leverageRatio:'creditRatiosPeriod', llcrLoanLifeCoverageRatio:'creditRatiosPeriod',
+  ltvLoanToValueRatio:'creditRatiosPeriod', interestRateDuration:'creditRatiosPeriod',
+  // Capital Activity
+  distributions:'capitalActivityPeriod', remainingCost:'capitalActivityPeriod',
+  otherDistributions:'capitalActivityPeriod', investedCapital:'capitalActivityPeriod',
+  // Return Metrics
+  reportedGrossIrr:'returnMetricsPeriod', reportedNetIrr:'returnMetricsPeriod',
+  reportedGrossDpi:'returnMetricsPeriod', reportedNetDpi:'returnMetricsPeriod',
+  reportedGrossMoic:'returnMetricsPeriod', reportedNetMoic:'returnMetricsPeriod',
+  reportedGrossRvpi:'returnMetricsPeriod', reportedNetRvpi:'returnMetricsPeriod',
+  reportedGrossTvpi:'returnMetricsPeriod', reportedNetTvpi:'returnMetricsPeriod'
+};
+function getPeriodForField(level, assetId, fieldKey){
+  const map = level==='fund' ? FUND_FIELD_GROUP : ASSET_FIELD_GROUP;
+  const grp = map[fieldKey];
+  // Not in mapping, or belongs to Balance Sheet → leave period blank.
+  if(!grp || grp==='balanceSheetPeriod') return '';
+  const periods = level==='fund' ? fPeriods : (aPeriods[assetId]||{});
+  const v = periods[grp];
+  return (v===null||v===undefined||v==='') ? '' : String(v);
+}
+const sel = new Set();
+let mMode = null, mKey1 = null;
+let ffF=false,ffN=true,ffS='',ffView=null;
+let afF=false,afN=true,afS='',afP='ALL',afView=null;
+
+// Stats state
+let allRuns = [];
+let statsData = null;
+let chartActions = null;
+
+const roleLabels = { reviewer:'Reviewer', validator:'Validator' };
+const rolePillClass = { reviewer:'op-reviewer', validator:'op-validator' };
+const docTypeLabels = { annual_quarterly:'Annual & Quarterly Report', financials:'Financials' };
+
+// ═══ HELPERS ═════════════════════════════════════════════════════════════════
+function escT(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function rv(v,c){if(v===null||v===undefined)return'<span class="vn">—</span>';return escT(String(v))+(c?`<span class="cy">${escT(c)}</span>`:'')}
+function parseVal(s){if(s==null)return null;if(typeof s!=='string')return s;const t=s.trim();if(!t||t==='null')return null;const n=Number(t);return isNaN(n)?t:n}
+function toast(msg,type='info',dur=3000){const t=document.getElementById('toaster');const el=document.createElement('div');el.className=`toast toast-${type}`;el.textContent=msg;t.appendChild(el);setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity 0.4s';setTimeout(()=>el.remove(),400)},dur)}
+function fmtTime(ts){if(!ts)return'';const d=new Date(ts);return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
+function fmtDate(ts){if(!ts)return'';return new Date(ts).toLocaleDateString()}
+function fmtDateStr(s){if(!s)return'';const[y,m,d]=s.split('-');return new Date(y,m-1,d).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})}
+function reviewKey(level,assetId,fieldKey){return level==='fund'?fieldKey:`${assetId}||${fieldKey}`}
+function getReview(level,assetId,fieldKey,reviewerName){const k=reviewKey(level,assetId,fieldKey);return reviews[level]?.[k]?.[reviewerName]||null}
+function setReviewLocal(data){const{level,asset_id='',field_key,reviewer_name,action,corrected_value,comment,reviewer_role,updated_at}=data;if(!reviews[level])reviews[level]={};const k=reviewKey(level,asset_id,field_key);if(!reviews[level][k])reviews[level][k]={};reviews[level][k][reviewer_name]={action,corrected_value,comment,reviewer_role,updated_at}}
+function isValidator(){return currentUser?.role==='validator'}
+function isReviewer(){return currentUser?.role==='reviewer'}
+function computeValidationProgress(){
+  const vn=currentUser.name;let totalNonNull=0,reviewedNonNull=0;
+  for(const fk of fFields){const v=fValues[fk]?.value;if(v!==null&&v!==undefined&&v!==''){totalNonNull++;const r=reviews.fund?.[fk]?.[vn];if(r?.action&&r.action!=='pending')reviewedNonNull++;}}
+  const aids=Object.keys(aAN);
+  if(aids.length&&aF.length>1){for(const aid of aids){for(let fi=1;fi<aF.length;fi++){const[v]=aV[aid][fi];if(v!==null&&v!==undefined&&v!==''){totalNonNull++;const fk=aF[fi][0];const rk=reviewKey('asset',aid,fk);const r=reviews.asset?.[rk]?.[vn];if(r?.action&&r.action!=='pending')reviewedNonNull++;}}}}
+  return{totalNonNull,reviewedNonNull,remaining:totalNonNull-reviewedNonNull};
+}
+async function api(method,path,body){const opts={method,headers:{'Content-Type':'application/json'}};if(currentUser?.token)opts.headers['Authorization']='Bearer '+currentUser.token;if(body)opts.body=JSON.stringify(body);const r=await fetch(path,opts);if(!r.ok)throw new Error(await r.text());return r.json()}
+
+// ═══ LOGIN ════════════════════════════════════════════════════════════════════
+async function initLogin(){
+  const sel=document.getElementById('loginName');
+  const errEl=document.getElementById('loginUsersErr');
+  if(errEl)errEl.style.display='none';
+  sel.innerHTML='<option value="">Loading users…</option>';
+  try{
+    const users=await api('GET','/api/users');
+    if(!Array.isArray(users)||users.length===0){
+      sel.innerHTML='<option value="">— no users configured —</option>';
+      if(errEl){errEl.textContent='Users list is empty — check users.json in your DATA_DIR.';errEl.style.display='block'}
+      return;
+    }
+    sel.innerHTML='<option value="">— Select your name —</option>';
+    users.forEach(u=>{const o=document.createElement('option');o.value=u.name;o.textContent=u.name;sel.appendChild(o)});
+  }catch(e){
+    console.error('initLogin failed:',e);
+    sel.innerHTML='<option value="">— failed to load users —</option>';
+    if(errEl){errEl.innerHTML=`Couldn't reach the server (${escT(e?.message||'unknown')}). Is the server running? <a href="#" onclick="initLogin();return false" style="color:#b03030;text-decoration:underline">Retry</a>`;errEl.style.display='block'}
+    toast('Failed to load users','err');
+  }
+}
+document.getElementById('loginName').addEventListener('change',checkLoginReady);
+document.getElementById('loginPass').addEventListener('input',checkLoginReady);
+function checkLoginReady(){const n=document.getElementById('loginName').value;const p=document.getElementById('loginPass').value;document.getElementById('loginBtn').disabled=!(n&&p)}
+async function doLogin(){
+  const name=document.getElementById('loginName').value;
+  const password=document.getElementById('loginPass').value;
+  if(!name||!password)return;
+  document.getElementById('loginErr').style.display='none';
+  try{
+    const res=await api('POST','/api/login',{name,password});
+    currentUser={name:res.name,role:res.role,token:res.token};
+    showMain();
+  }catch(e){document.getElementById('loginErr').style.display='block'}
+}
+function goLogin(){leaveWs();currentUser=null;document.getElementById('loginPass').value='';document.getElementById('loginName').value='';document.getElementById('loginErr').style.display='none';document.getElementById('loginBtn').disabled=true;showScreen('loginScreen')}
+
+// ═══ SCREEN MANAGEMENT ═══════════════════════════════════════════════════════
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
+
+// ═══ MAIN SCREEN (Stats + Runs) ══════════════════════════════════════════════
+async function showMain(){
+  showScreen('mainScreen');
+  document.getElementById('mainUserLabel').textContent=`${currentUser.name} · ${roleLabels[currentUser.role]}`;
+  try{allRuns=await api('GET','/api/runs')}catch(e){allRuns=[]}
+  try{configClients=await api('GET','/api/clients')}catch(e){configClients=[]}
+  const activeTabId=document.querySelector('.nav-tab.active')?.id;
+  const activeTab=activeTabId==='tabRuns'?'runs':activeTabId==='tabConfig'?'config':'stats';
+  initPendingDropZone();
+  switchTab(activeTab);
+}
+
+function switchTab(tab){
+  document.getElementById('tabStats').classList.toggle('active',tab==='stats');
+  document.getElementById('tabRuns').classList.toggle('active',tab==='runs');
+  document.getElementById('tabPending').classList.toggle('active',tab==='pending');
+  document.getElementById('tabConfig').classList.toggle('active',tab==='config');
+  document.getElementById('statsPanel').classList.toggle('active',tab==='stats');
+  document.getElementById('runsPanel').classList.toggle('active',tab==='runs');
+  document.getElementById('pendingPanel').classList.toggle('active',tab==='pending');
+  document.getElementById('configPanel').classList.toggle('active',tab==='config');
+  if(tab==='stats')loadStatsData();
+  if(tab==='runs'){loadRunsData();renderRunsPanel();}
+  if(tab==='pending')loadPendingData();
+  if(tab==='config')loadConfigClients();
+}
+
+// ═══ STATS PANEL ══════════════════════════════════════════════════════════════
+function setDateRange(days){
+  const to=new Date();
+  document.getElementById('statsDateTo').value=to.toISOString().slice(0,10);
+  if(days===0){document.getElementById('statsDateFrom').value=''}
+  else{const from=new Date(to);from.setDate(from.getDate()-days);document.getElementById('statsDateFrom').value=from.toISOString().slice(0,10)}
+  // highlight active button
+  document.querySelectorAll('.stats-quick-btn').forEach(b=>b.classList.remove('on'));
+  event.target.classList.add('on');
+  renderStats();
+}
+
+async function loadStatsData(){
+  try{
+    statsData=await api('GET','/api/stats');
+    allRuns=await api('GET','/api/runs');
+    // Populate client filter
+    const cf=document.getElementById('statsClientFilter');
+    const cur=cf.value;
+    cf.innerHTML='<option value="ALL">All Clients</option>';
+    Object.keys(statsData.byClient).forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;cf.appendChild(o)});
+    if(cur)cf.value=cur;
+    renderStats();
+  }catch(e){toast('Failed to load stats','err')}
+}
+
+function renderStats(){
+  if(!statsData)return;
+  const clientFilter=document.getElementById('statsClientFilter').value;
+  const docFilter=document.getElementById('statsDocFilter').value;
+  const dateFrom=document.getElementById('statsDateFrom').value;
+  const dateTo=document.getElementById('statsDateTo').value;
+
+  // Filter runs by all active filters (use run_date if set, fallback to created_at)
+  let runs=allRuns.filter(r=>{
+    if(clientFilter!=='ALL'&&(r.client||'Uncategorized')!==clientFilter)return false;
+    if(docFilter!=='ALL'&&(r.doc_type||'Unknown')!==docFilter)return false;
+    const rDate=(r.run_date||r.created_at||'').slice(0,10);
+    if(dateFrom&&rDate&&rDate<dateFrom)return false;
+    if(dateTo&&rDate&&rDate>dateTo)return false;
+    return true;
+  });
+
+  const filteredApproved=runs.filter(r=>r.status==='approved').length;
+  const filteredIP=runs.filter(r=>r.status!=='approved').length;
+
+  // For review action counts, filter by client/doctype from server aggregates
+  let showActions=statsData.byAction;
+  let totalReviews=statsData.totalReviews;
+  if(clientFilter!=='ALL'){
+    const cd=statsData.byClient[clientFilter]||{};
+    showActions={validated:cd.validated||0,corrected:cd.corrected||0,ignored:0,pending:0};
+    totalReviews=cd.reviews||0;
+  } else if(docFilter!=='ALL'){
+    const dd=statsData.byDocType[docFilter]||{};
+    showActions={validated:dd.validated||0,corrected:0,ignored:0,pending:0};
+    totalReviews=dd.reviews||0;
+  }
+
+  const validated=showActions.validated||0;
+  const corrected=showActions.corrected||0;
+  const ignored=showActions.ignored||0;
+  const pending=showActions.pending||0;
+  const autoValPct=totalReviews>0?Math.round(validated/totalReviews*100):0;
+  const manualPct=totalReviews>0?Math.round((corrected+ignored)/totalReviews*100):0;
+
+  // Hero banner
+  document.getElementById('heroAutoVal').textContent=autoValPct+'%';
+  document.getElementById('heroMini').innerHTML=`
+    <div class="stats-hero-mini-item"><span class="dot" style="background:#4ade80"></span><span class="num">${validated}</span><span style="opacity:.75">Validated</span></div>
+    <div class="stats-hero-mini-item"><span class="dot" style="background:#fbbf24"></span><span class="num">${corrected}</span><span style="opacity:.75">Corrected</span></div>
+    <div class="stats-hero-mini-item"><span class="dot" style="background:#94a3b8"></span><span class="num">${ignored}</span><span style="opacity:.75">Ignored</span></div>
+    <div class="stats-hero-mini-item"><span class="dot" style="background:#f87171"></span><span class="num">${pending}</span><span style="opacity:.75">Pending</span></div>`;
+
+  // Cards with colored top bar via CSS var
+  document.getElementById('statsCards').innerHTML=`
+    <div class="stat-card" style="--card-color:#2980b9"><div class="sc-lbl">Total Runs</div><div class="sc-val">${runs.length}</div>${dateFrom||dateTo?`<div class="sc-sub">in date range</div>`:''}</div>
+    <div class="stat-card" style="--card-color:#1a7a35"><div class="sc-lbl">Approved</div><div class="sc-val">${filteredApproved}</div><div class="sc-sub">${runs.length>0?Math.round(filteredApproved/runs.length*100):0}% of runs</div></div>
+    <div class="stat-card" style="--card-color:#b06010"><div class="sc-lbl">In Progress</div><div class="sc-val">${filteredIP}</div></div>
+    <div class="stat-card" style="--card-color:#555"><div class="sc-lbl">Total Reviews</div><div class="sc-val">${totalReviews}</div><div class="sc-sub">decisions recorded</div></div>
+    <div class="stat-card" style="--card-color:#1a7a35"><div class="sc-lbl">Auto-Validated</div><div class="sc-val">${autoValPct}%</div><div class="sc-sub">${validated} fields</div></div>
+    <div class="stat-card" style="--card-color:#b06010"><div class="sc-lbl">Manual Action</div><div class="sc-val">${manualPct}%</div><div class="sc-sub">${corrected+ignored} corrected/ignored</div></div>
+    <div class="stat-card" style="--card-color:#b03030"><div class="sc-lbl">Pending</div><div class="sc-val">${pending}</div><div class="sc-sub">awaiting review</div></div>
+  `;
+
+  // Actions donut chart
+  const actCtx=document.getElementById('chartActions').getContext('2d');
+  if(chartActions)chartActions.destroy();
+  chartActions=new Chart(actCtx,{type:'doughnut',data:{labels:['Validated','Corrected','Ignored','Pending'],datasets:[{data:[validated,corrected,ignored,pending],backgroundColor:['#1a7a35','#f59e0b','#94a3b8','#f87171'],borderWidth:3,borderColor:'#fff',hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:14,usePointStyle:true}}}}});
+
+  // Client progress bars
+  const clientKeys=Object.keys(statsData.byClient).slice(0,8);
+  const pl=document.getElementById('clientProgressList');
+  if(!clientKeys.length){pl.innerHTML='<div style="color:#bbb;font-size:12px;padding:20px 0;text-align:center">No client data yet</div>';return}
+  pl.innerHTML=clientKeys.map(k=>{
+    const cd=statsData.byClient[k];
+    const pct=cd.reviews>0?Math.round(cd.validated/cd.reviews*100):0;
+    return`<div class="progress-item">
+      <div class="progress-header"><span class="p-name" title="${escT(k)}">${escT(k)}</span><span class="p-pct">${pct}%</span></div>
+      <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// ═══ RUNS PANEL ══════════════════════════════════════════════════════════════
+let runSortCol='run_date',runSortAsc=false;
+
+async function loadRunsData(){
+  try{allRuns=await api('GET','/api/runs')}catch(e){allRuns=[]}
+  // Populate client filter dropdown from configured clients + existing runs
+  const cf=document.getElementById('runsClientFilter');
+  const cur=cf.value;
+  cf.innerHTML='<option value="ALL">All Clients</option>';
+  const clientNames=[...new Set(allRuns.map(r=>r.client).filter(Boolean))].sort();
+  clientNames.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;cf.appendChild(o)});
+  if(cur)cf.value=cur;
+  // Also update datalist for new run modal
+  const dl=document.getElementById('clientsList_dl');
+  dl.innerHTML=clientNames.map(c=>`<option value="${escT(c)}">`).join('');
+  renderRunsPanel();
+}
+
+function setRunSort(col){
+  if(runSortCol===col)runSortAsc=!runSortAsc;
+  else{runSortCol=col;runSortAsc=true}
+  renderRunsPanel();
+}
+
+function renderRunsPanel(){
+  const q=(document.getElementById('runSearch')?.value||'').toLowerCase();
+  const clientFilter=document.getElementById('runsClientFilter')?.value||'ALL';
+  const docFilter=document.getElementById('runsDocFilter')?.value||'ALL';
+
+  let runs=allRuns.filter(r=>{
+    if(clientFilter!=='ALL'&&(r.client||'')!==clientFilter)return false;
+    if(docFilter!=='ALL'&&(r.doc_type||'')!==docFilter)return false;
+    if(q){
+      const hay=[r.client,r.doc_type,r.account_id,r.security_id,r.fund_id,r.fund_name,r.run_date].map(v=>v||'').join(' ').toLowerCase();
+      if(!hay.includes(q))return false;
+    }
+    return true;
+  });
+
+  // Sort
+  runs=[...runs].sort((a,b)=>{
+    let va=a[runSortCol]||'',vb=b[runSortCol]||'';
+    const cmp=va.localeCompare(vb);
+    return runSortAsc?cmp:-cmp;
+  });
+
+  // Update sort arrow indicators
+  document.querySelectorAll('.sort-arrow').forEach(el=>el.textContent='▲');
+  document.querySelectorAll('thead th').forEach(th=>th.classList.remove('sorted'));
+  const arrEl=document.getElementById('sarr-'+runSortCol);
+  if(arrEl){arrEl.textContent=runSortAsc?'▲':'▼';arrEl.closest('th')?.classList.add('sorted')}
+
+  const tbody=document.getElementById('runsTableBody');
+  if(!runs.length){
+    tbody.innerHTML=`<tr><td class="empty-td" colspan="10">No runs found. Click "+ New Run" to get started.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML=runs.map(r=>{
+    const displayDate=r.run_date?fmtDateStr(r.run_date):fmtDate(r.created_at);
+    const dtLabel=docTypeLabels[r.doc_type]||r.doc_type||'—';
+    const sc=r.status==='approved'?'s-ap':'s-ip';
+    const sl=r.status==='approved'?'Approved':'In Progress';
+    return`<tr onclick="openRun('${r.id}')">
+      <td><span class="rt-client">${escT(r.client||'—')}</span></td>
+      <td>${escT(dtLabel)}</td>
+      <td>${escT(displayDate)}</td>
+      <td>${escT(r.account_id||'—')}</td>
+      <td>${escT(r.security_id||'—')}</td>
+      <td>${escT(r.fund_id||'—')}</td>
+      <td>${escT(r.fund_name||'—')}</td>
+      <td><span class="run-status-badge ${sc}">${sl}</span></td>
+      <td style="max-width:200px;color:#666">${escT(r.notes||'')}</td>
+      <td onclick="event.stopPropagation()" style="white-space:nowrap">
+        ${r.status==='approved'?`<button class="cfg-edit-btn" style="border-color:#1a7a35;color:#1a7a35" onclick="event.stopPropagation();openGoldenCopyView('${r.id}')">View GC</button>`:''}
+        ${r.status!=='approved'&&currentUser?.role==='validator'?`<button class="cfg-edit-btn" style="border-color:#1a7a35;color:#1a7a35" onclick="event.stopPropagation();approveRun('${r.id}')">Approve</button>`:''}
+        <button class="cfg-edit-btn" onclick="openEditRunModal('${r.id}')">Edit</button>
+        <button class="cfg-del-btn" onclick="deleteRun('${r.id}')">Delete</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function exportRunsExcel(){
+  const q=(document.getElementById('runSearch')?.value||'').toLowerCase();
+  const clientFilter=document.getElementById('runsClientFilter')?.value||'ALL';
+  const docFilter=document.getElementById('runsDocFilter')?.value||'ALL';
+
+  let runs=allRuns.filter(r=>{
+    if(clientFilter!=='ALL'&&(r.client||'')!==clientFilter)return false;
+    if(docFilter!=='ALL'&&(r.doc_type||'')!==docFilter)return false;
+    if(q){const hay=[r.client,r.doc_type,r.account_id,r.security_id,r.fund_id,r.fund_name,r.run_date,r.notes].map(v=>v||'').join(' ').toLowerCase();if(!hay.includes(q))return false}
+    return true;
+  });
+
+  runs=[...runs].sort((a,b)=>{
+    let va=a[runSortCol]||'',vb=b[runSortCol]||'';
+    const cmp=va.localeCompare(vb);return runSortAsc?cmp:-cmp;
+  });
+
+  const rows=runs.map(r=>({
+    'Client': r.client||'',
+    'Document Type': docTypeLabels[r.doc_type]||r.doc_type||'',
+    'Run Date': r.run_date?fmtDateStr(r.run_date):'',
+    'Account ID': r.account_id||'',
+    'Security ID': r.security_id||'',
+    'Fund ID': r.fund_id||'',
+    'Fund Name': r.fund_name||'',
+    'Status': r.status==='approved'?'Approved':'In Progress',
+    'Notes': r.notes||''
+  }));
+
+  if(!rows.length){toast('No runs to export','err');return}
+
+  const ws=XLSX.utils.json_to_sheet(rows);
+  // Set column widths
+  ws['!cols']=[{wch:20},{wch:28},{wch:14},{wch:14},{wch:14},{wch:36},{wch:14},{wch:40}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Runs');
+  const date=new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb,`runs-export-${date}.xlsx`);
+  toast('Exported '+rows.length+' runs','ok');
+}
+
+// ═══ CONFIG PANEL ════════════════════════════════════════════════════════════
+let configClients=[];
+let cmEditIndex=null;
+
+// ═══ PENDING PANEL ════════════════════════════════════════════════════════════
+let pendingFiles=[], pendingSel=new Set();
+
+// Drop zone wiring (runs once DOM is ready, deferred to end of script init)
+function initPendingDropZone(){
+  const dz=document.getElementById('pendingDropZone');
+  const fi=document.getElementById('pendingFileInput');
+  if(!dz||!fi)return;
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover')});
+  dz.addEventListener('dragleave',e=>{if(!dz.contains(e.relatedTarget))dz.classList.remove('dragover')});
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('dragover');handlePendingFiles(e.dataTransfer.files)});
+  fi.addEventListener('change',e=>{if(e.target.files.length)handlePendingFiles(e.target.files);e.target.value=''});
+}
+
+async function handlePendingFiles(fileList){
+  const files=[...fileList].filter(f=>{const e=f.name.split('.').pop().toLowerCase();return e==='json'||e==='pdf'});
+  if(!files.length)return;
+  const dz=document.getElementById('pendingDropZone');
+  if(dz){dz.classList.add('uploading');dz.querySelector('div').textContent='Uploading…'}
+  let uploaded=0,failed=0;
+  for(const file of files){
+    try{
+      const b64=await fileToBase64(file);
+      await api('POST','/api/pending/upload',{filename:file.name,content_base64:b64});
+      uploaded++;
+    }catch(e){failed++;console.error('Upload failed:',file.name,e)}
+  }
+  if(dz){dz.classList.remove('uploading');dz.querySelector('div').textContent='Drop PDF + JSON pairs here'}
+  if(uploaded){toast(`Uploaded ${uploaded} file${uploaded!==1?'s':''}${failed?` (${failed} failed)`:''}  — files added to pending`,'ok');await loadPendingData()}
+  else if(failed){toast('Upload failed','err')}
+}
+
+async function loadPendingData(){
+  try{
+    pendingFiles=await api('GET','/api/pending');
+    pendingSel=new Set([...pendingSel].filter(n=>pendingFiles.some(f=>f.name===n)));
+    renderPendingPanel();
+    // update badge on tab
+    const badge=document.getElementById('pendingBadge');
+    if(badge){badge.textContent=pendingFiles.length||'';badge.style.display=pendingFiles.length?'':'none'}
+  }catch(e){toast('Failed to load pending files','err')}
+}
+
+function renderPendingPanel(){
+  const tbody=document.getElementById('pendingTableBody');if(!tbody)return;
+  const lbl=document.getElementById('pendingCountLbl');
+  if(lbl)lbl.textContent=`${pendingFiles.length} file${pendingFiles.length!==1?'s':''} waiting`;
+  const btn=document.getElementById('importSelectedBtn');if(btn)btn.disabled=pendingSel.size===0;
+  const allCb=document.getElementById('pendingAllCb');
+  const importable=pendingFiles.filter(f=>f.has_pdf);
+  if(allCb)allCb.checked=importable.length>0&&importable.every(f=>pendingSel.has(f.name));
+
+  if(!pendingFiles.length){
+    tbody.innerHTML=`<tr><td class="empty-td" colspan="5">No files in review-pending/. Drop a PDF + JSON pair there to queue them.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML=pendingFiles.map(f=>{
+    const checked=pendingSel.has(f.name)?'checked':'';
+    const pdfBadge=f.has_pdf?`<span style="color:#1a7a35;font-weight:500">✓ PDF</span>`:`<span style="color:#f87171">✗ No PDF</span>`;
+    const dt=f.added_at?fmtDate(f.added_at):'—';
+    const canImport=f.has_pdf;
+    return`<tr style="${!canImport?'opacity:.5':''}">
+      <td style="padding:8px 12px"><input type="checkbox" ${checked} ${!canImport?'disabled':''} onchange="togglePendingSel('${escT(f.name)}',this.checked)"></td>
+      <td style="font-weight:500">${escT(f.name)}</td>
+      <td>${pdfBadge}</td>
+      <td style="color:#888;font-size:11px">${dt}</td>
+      <td onclick="event.stopPropagation()">${canImport?`<button class="cfg-edit-btn" style="border-color:#2980b9;color:#2980b9" onclick="importPendingFiles(['${escT(f.name)}'])">→ Move to In Process</button>`:'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function togglePendingSel(name,checked){
+  if(checked)pendingSel.add(name);else pendingSel.delete(name);
+  const btn=document.getElementById('importSelectedBtn');if(btn)btn.disabled=pendingSel.size===0;
+  const importable=pendingFiles.filter(f=>f.has_pdf);
+  const allCb=document.getElementById('pendingAllCb');
+  if(allCb)allCb.checked=importable.length>0&&importable.every(f=>pendingSel.has(f.name));
+}
+
+function toggleAllPending(checked){
+  pendingFiles.filter(f=>f.has_pdf).forEach(f=>checked?pendingSel.add(f.name):pendingSel.delete(f.name));
+  renderPendingPanel();
+}
+
+async function importSelectedPending(){await importPendingFiles([...pendingSel])}
+
+async function importPendingFiles(names){
+  if(!names.length)return;
+  try{
+    const result=await api('POST','/api/pending/import',{names});
+    const n=result.imported?.length||0;
+    const f=result.failed?.length||0;
+    toast(n?`Moved ${n} file${n!==1?'s':''} to In Process`+(f?` (${f} failed)`:''):'Nothing imported',n?'ok':'err');
+    if(n){result.imported.forEach(nm=>pendingSel.delete(nm));await loadPendingData();await loadRunsData()}
+  }catch(e){toast('Failed to import files','err')}
+}
+
+async function loadConfigClients(){
+  try{configClients=await api('GET','/api/clients')}catch(e){configClients=[]}
+  renderConfigClients();
+}
+
+function renderConfigClients(){
+  const el=document.getElementById('configClientsList');
+  if(!configClients.length){el.innerHTML='<div class="config-empty">No clients configured yet.</div>';return}
+  el.innerHTML=`<table class="config-table">
+    <thead><tr><th>#</th><th>Client Name</th><th>Description</th><th>Actions</th></tr></thead>
+    <tbody>${configClients.map((c,i)=>`<tr>
+      <td style="color:#bbb;font-size:11px">${i+1}</td>
+      <td style="font-weight:500">${escT(c.name)}</td>
+      <td style="color:#777">${escT(c.description||'—')}</td>
+      <td>
+        <button class="cfg-edit-btn" onclick="openClientModal(${i})">Edit</button>
+        <button class="cfg-del-btn" onclick="deleteClient(${i})">Delete</button>
+      </td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+  // Sync datalist for new run modal
+  const dl=document.getElementById('clientsList_dl');
+  dl.innerHTML=configClients.map(c=>`<option value="${escT(c.name)}">`).join('');
+  // Sync runs client filter
+  const cf=document.getElementById('runsClientFilter');
+  if(cf){
+    const cur=cf.value;
+    cf.innerHTML='<option value="ALL">All Clients</option>';
+    configClients.forEach(c=>{const o=document.createElement('option');o.value=c.name;o.textContent=c.name;cf.appendChild(o)});
+    if(cur)cf.value=cur;
+  }
+}
+
+function openClientModal(editIndex=null){
+  cmEditIndex=editIndex;
+  const c=editIndex!=null?configClients[editIndex]:null;
+  document.getElementById('cmTitle').textContent=c?'Edit Client':'Add Client';
+  document.getElementById('cmName').value=c?c.name:'';
+  document.getElementById('cmDesc').value=c?c.description||'':'';
+  document.getElementById('cmErr').style.display='none';
+  document.getElementById('clientModal').classList.add('open');
+  setTimeout(()=>document.getElementById('cmName').focus(),80);
+}
+function closeClientModal(){document.getElementById('clientModal').classList.remove('open');cmEditIndex=null}
+
+async function saveClient(){
+  const name=document.getElementById('cmName').value.trim();
+  const description=document.getElementById('cmDesc').value.trim();
+  if(!name){document.getElementById('cmErr').style.display='block';return}
+  document.getElementById('cmErr').style.display='none';
+  try{
+    if(cmEditIndex!=null){await api('PUT',`/api/clients/${cmEditIndex}`,{name,description})}
+    else{await api('POST','/api/clients',{name,description})}
+    closeClientModal();await loadConfigClients();toast('Client saved','ok');
+  }catch(e){toast('Failed to save client','err')}
+}
+
+async function deleteClient(index){
+  if(!confirm(`Delete client "${configClients[index].name}"?`))return;
+  try{await api('DELETE',`/api/clients/${index}`);await loadConfigClients();toast('Client deleted','ok')}
+  catch(e){toast('Failed to delete client','err')}
+}
+
+// ═══ EDIT / DELETE RUN ═══════════════════════════════════════════════════════
+let ermRunId=null;
+
+function openEditRunModal(runId){
+  const r=allRuns.find(x=>x.id===runId);
+  if(!r)return;
+  ermRunId=runId;
+  document.getElementById('ermClient').value=r.client||'';
+  document.getElementById('ermDocType').value=r.doc_type||'';
+  document.getElementById('ermAccountId').value=r.account_id||'';
+  document.getElementById('ermSecurityId').value=r.security_id||'';
+  document.getElementById('ermFundId').value=r.fund_id||'';
+  document.getElementById('ermFundName').value=r.fund_name||'';
+  document.getElementById('ermRunDate').value=r.run_date||'';
+  document.getElementById('ermNotes').value=r.notes||'';
+  document.getElementById('ermErr').style.display='none';
+  document.getElementById('editRunModal').style.display='flex';
+}
+function closeEditRunModal(){document.getElementById('editRunModal').style.display='none';ermRunId=null}
+
+async function saveEditRun(){
+  const client=document.getElementById('ermClient').value.trim();
+  const run_date=document.getElementById('ermRunDate').value;
+  if(!client||!run_date){document.getElementById('ermErr').style.display='block';return}
+  const body={
+    client,
+    doc_type:document.getElementById('ermDocType').value||null,
+    account_id:document.getElementById('ermAccountId').value.trim()||null,
+    security_id:document.getElementById('ermSecurityId').value.trim()||null,
+    fund_id:document.getElementById('ermFundId').value.trim()||null,
+    fund_name:document.getElementById('ermFundName').value.trim()||null,
+    run_date,
+    name:run_date,
+    notes:document.getElementById('ermNotes').value.trim()||null
+  };
+  try{
+    await api('PATCH',`/api/runs/${ermRunId}`,body);
+    closeEditRunModal();
+    try{allRuns=await api('GET','/api/runs')}catch(_){}
+    renderRunsPanel();
+    toast('Run updated','ok');
+  }catch(e){toast('Failed to update run','err')}
+}
+
+async function deleteRun(runId){
+  const r=allRuns.find(x=>x.id===runId);
+  if(!confirm(`Delete run for "${r?.client||runId}" (${r?.run_date||''})?`))return;
+  try{
+    await api('DELETE',`/api/runs/${runId}`);
+    allRuns=allRuns.filter(x=>x.id!==runId);
+    renderRunsPanel();
+    toast('Run deleted','ok');
+  }catch(e){toast('Failed to delete run','err')}
+}
+
+// ═══ NEW RUN MODAL ════════════════════════════════════════════════════════════
+let nrmJsonData=null,nrmFilename=null,nrmPdfFile=null;
+
+function openNewRun(prefillClient,prefillDocType){
+  nrmJsonData=null;nrmFilename=null;nrmPdfFile=null;
+  // Sync datalist from configClients
+  const dl=document.getElementById('clientsList_dl');
+  dl.innerHTML=configClients.map(c=>`<option value="${escT(c.name)}">`).join('');
+  document.getElementById('nrmClient').value=prefillClient||'';
+  document.getElementById('nrmDocType').value=prefillDocType||'';
+  document.getElementById('nrmAccountId').value='';
+  document.getElementById('nrmSecurityId').value='';
+  document.getElementById('nrmFundId').value='';
+  document.getElementById('nrmFundName').value='';
+  document.getElementById('nrmRunDate').value=new Date().toISOString().slice(0,10);
+  document.getElementById('nrmDrop').className='drop-zone';
+  document.getElementById('nrmDrop').innerHTML='<div style="font-size:22px;margin-bottom:6px">📂</div><div style="font-size:13px">Click to browse or drag & drop</div><div style="font-size:11px;margin-top:4px">JSON files only</div>';
+  document.getElementById('nrmPdfLabel').textContent='Click to attach a PDF document (optional)';
+  document.getElementById('nrmPdfDrop').className='pdf-drop-zone';
+  document.getElementById('nrmCreate').disabled=true;
+  document.getElementById('newRunModal').classList.add('open');
+}
+function closeNewRun(){document.getElementById('newRunModal').classList.remove('open')}
+
+document.getElementById('nrmFile').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;loadNrmFile(f);e.target.value=''});
+document.getElementById('nrmPdfFile').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;setNrmPdf(f);e.target.value=''});
+
+function setNrmPdf(f){nrmPdfFile=f;document.getElementById('nrmPdfLabel').textContent='📄 '+f.name;document.getElementById('nrmPdfDrop').className='pdf-drop-zone has-file'}
+
+// Handle drop on either zone — detect JSON vs PDF and route accordingly; accept both dropped together
+function nrmHandleDrop(files){
+  for(const f of files){
+    const ext=f.name.split('.').pop().toLowerCase();
+    if(ext==='json')loadNrmFile(f);
+    else if(ext==='pdf')setNrmPdf(f);
+  }
+}
+
+const nrmDrop=document.getElementById('nrmDrop');
+nrmDrop.addEventListener('dragover',e=>{e.preventDefault();nrmDrop.classList.add('dragover')});
+nrmDrop.addEventListener('dragleave',e=>{if(!nrmDrop.contains(e.relatedTarget))nrmDrop.classList.remove('dragover')});
+nrmDrop.addEventListener('drop',e=>{e.preventDefault();nrmDrop.classList.remove('dragover');nrmHandleDrop(e.dataTransfer.files)});
+
+const nrmPdfDrop=document.getElementById('nrmPdfDrop');
+nrmPdfDrop.addEventListener('dragover',e=>{e.preventDefault();nrmPdfDrop.classList.add('dragover')});
+nrmPdfDrop.addEventListener('dragleave',e=>{if(!nrmPdfDrop.contains(e.relatedTarget))nrmPdfDrop.classList.remove('dragover')});
+nrmPdfDrop.addEventListener('drop',e=>{e.preventDefault();nrmPdfDrop.classList.remove('dragover');nrmHandleDrop(e.dataTransfer.files)});
+
+// Extract identifiers from identifierMapping (mirrors server-side logic)
+function extractIdsFromJson(json){
+  try{
+    const data=json?.identifierMapping?.data;
+    if(!data) return {};
+    // New format: data.mappings[]
+    if(Array.isArray(data.mappings)&&data.mappings.length){
+      const m=data.mappings.find(x=>x.validCombination)??data.mappings[0];
+      return {
+        client:      m.clientName??null,
+        account_id:  String(m.accountId??'')||null,
+        security_id: String(m.securityId??'')||null,
+        fund_id:     String(m.fundId??'')||null,
+        fund_name:   data.extractedData?.fundName??m.fundName??m.docFundName??null,
+      };
+    }
+    // Old format: data.funds[]
+    const funds=data.funds;
+    if(!Array.isArray(funds)||!funds.length) return {};
+    const fund=funds[0];
+    const m=(fund.mappings||[]).find(x=>x.validCombination)??fund.mappings?.[0];
+    if(!m) return {};
+    return {
+      client:      m.clientName??null,
+      account_id:  String(m.accountId??'')||null,
+      security_id: String(m.securityId??'')||null,
+      fund_id:     String(fund.fundId??'')||null,
+      fund_name:   fund.fundName??fund.name??null,
+    };
+  }catch{return {}}
+}
+
+function loadNrmFile(file){
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      const parsed=JSON.parse(ev.target.result);
+      nrmJsonData=ev.target.result;nrmFilename=file.name;
+      nrmDrop.className='drop-zone has-file';
+      nrmDrop.innerHTML=`<div style="font-size:20px;margin-bottom:5px">✅</div><div style="font-size:13px;font-weight:500">${escT(file.name)}</div>`;
+      document.getElementById('nrmCreate').disabled=false;
+      // Pre-fill identifier fields from identifierMapping
+      const ids=extractIdsFromJson(parsed);
+      if(ids.client)      document.getElementById('nrmClient').value=ids.client;
+      if(ids.account_id)  document.getElementById('nrmAccountId').value=ids.account_id;
+      if(ids.security_id) document.getElementById('nrmSecurityId').value=ids.security_id;
+      if(ids.fund_id)     document.getElementById('nrmFundId').value=ids.fund_id;
+      if(ids.fund_name)   document.getElementById('nrmFundName').value=ids.fund_name;
+    }catch{toast('Invalid JSON file','err')}
+  };
+  r.readAsText(file);
+}
+
+async function createRun(){
+  const client=document.getElementById('nrmClient').value.trim();
+  const doc_type=document.getElementById('nrmDocType').value;
+  const account_id=document.getElementById('nrmAccountId').value.trim()||null;
+  const security_id=document.getElementById('nrmSecurityId').value.trim()||null;
+  const fund_id=document.getElementById('nrmFundId').value.trim()||null;
+  const fund_name=document.getElementById('nrmFundName').value.trim()||null;
+  const run_date=document.getElementById('nrmRunDate').value||new Date().toISOString().slice(0,10);
+  const name=nrmFilename?nrmFilename.replace(/\.[^.]+$/,''):run_date;
+  if(!nrmJsonData){toast('Please upload a JSON file','err');return}
+  if(!client){toast('Please enter a client name','err');return}
+  try{
+    const run=await api('POST','/api/runs',{name,source_file:nrmFilename,json_data:nrmJsonData,client,doc_type:doc_type||null,account_id,security_id,fund_id,fund_name,run_date});
+    if(nrmPdfFile){
+      try{const pdfB64=await fileToBase64(nrmPdfFile);await api('POST',`/api/runs/${run.id}/pdf`,{pdf_base64:pdfB64,filename:nrmPdfFile.name})}catch(e){toast('Run created but PDF upload failed','err')}
+    }
+    closeNewRun();toast('Run created','ok');
+    try{allRuns=await api('GET','/api/runs')}catch(_){}
+    await openRun(run.id);
+  }catch(e){toast('Failed to create run','err')}
+}
+
+function fileToBase64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file)})}
+
+// ═══ OPEN / LEAVE RUN ════════════════════════════════════════════════════════
+async function openRun(runId){
+  try{
+    const run=await api('GET',`/api/runs/${runId}`);
+    currentRun=run;
+    runJson=JSON.parse(run.json_data);
+    parseRunJson(runJson);
+    reviews={fund:{},asset:{}};
+    const existing=await api('GET',`/api/runs/${runId}/reviews`);
+    for(const r of existing)setReviewLocal(r);
+    connectWs(runId);startPoll();
+    showScreen('reviewScreen');
+    document.getElementById('rtFname').textContent=run.run_date?fmtDateStr(run.run_date):(run.name||run.source_file);
+    const meta=[];
+    if(run.client)meta.push(run.client);
+    if(run.doc_type)meta.push(docTypeLabels[run.doc_type]||run.doc_type);
+    meta.push(roleLabels[currentUser.role]);
+    document.getElementById('rtMeta').textContent=meta.join(' · ');
+    if(run.pdf_filename){
+      try{
+        const resp=await fetch(`/api/runs/${runId}/pdf`);
+        if(resp.ok){
+          const buf=await resp.arrayBuffer();
+          const id='doc-server-pdf';
+          const old=docs.findIndex(d=>d.id===id);if(old!==-1)docs.splice(old,1);
+          docs.push({id,name:run.pdf_filename,type:'pdf',data:new Uint8Array(buf)});
+          activeDocId=id;renderDocUI();loadPDF(id);
+        }
+      }catch(_){}
+    }
+    render();
+  }catch(e){console.error(e);toast('Failed to open run','err')}
+}
+
+function leaveRun(){
+  leaveWs();stopPoll();
+  currentRun=null;runJson=null;reviews={fund:{},asset:{}};
+  sel.clear();docs.length=0;activeDocId=null;
+  showMain();
+}
+
+function parseRunJson(json){
+  const ext=json?.extraction?.data||{};
+  // Capture period values from the five group-period identifiers, then drop
+  // them from the visible property list — they shouldn't show up as rows.
+  fPeriods={};
+  PERIOD_IDENTIFIERS.forEach(pk=>{const fd=ext[pk];if(fd&&typeof fd==='object')fPeriods[pk]=fd.value;else if(fd!==undefined)fPeriods[pk]=fd});
+  fFields=Object.keys(ext).filter(k=>k!=='assets'&&!PERIOD_IDENTIFIERS.has(k));
+  fValues={};
+  fFields.forEach(fk=>{const fd=ext[fk];if(fd&&typeof fd==='object'){fValues[fk]={value:fd.value!==undefined?fd.value:null,display_name:fd.display_name||fd.displayName||fk,currency_code:fd.currency_code||null,evidence:fd.evidence||null}}else{fValues[fk]={value:fd,display_name:fk,currency_code:null,evidence:null}}});
+  const inc=json?.validation?.data?.incorrect||{};
+  fINC={};
+  Object.keys(inc).forEach(fk=>{if(fk==='assets'||PERIOD_IDENTIFIERS.has(fk))return;const info=inc[fk];fINC[fk]=typeof info==='string'?info:(info?.reason||'Flagged')});
+  const assets=ext.assets||{};const aids=Object.keys(assets);
+  aF=[];aAN={};aDN={};aV={};aINC={};aSORTF=[];aPeriods={};
+  if(aids.length){
+    // Field list = keys on the first asset, minus the five period identifiers.
+    aF=Object.keys(assets[aids[0]])
+      .filter(fk=>!PERIOD_IDENTIFIERS.has(fk))
+      .map(fk=>[fk,assets[aids[0]][fk]?.displayName||assets[aids[0]][fk]?.display_name||fk]);
+    aids.forEach(aid=>{const name=assets[aid]?.nameOfAsset?.value||aid;aAN[aid]=name;aDN[aid]=name});
+    aids.forEach(aid=>{
+      // Pull per-asset period values before they're stripped from the field list.
+      aPeriods[aid]={};
+      PERIOD_IDENTIFIERS.forEach(pk=>{const fd=assets[aid]?.[pk];if(fd&&typeof fd==='object')aPeriods[aid][pk]=fd.value;else if(fd!==undefined)aPeriods[aid][pk]=fd});
+      aV[aid]=aF.map(([fk])=>{const fd=assets[aid][fk];if(!fd)return[null,null,null,null];const ev=fd.evidence||null;return[fd.value!==undefined?fd.value:null,fd.currency_code||null,ev?.page_number||ev?.pageNumber||null,ev?.exact_text||ev?.exactText||null]});
+    });
+    const assetInc=inc?.assets||{};
+    Object.keys(assetInc).forEach(k=>{const m=k.match(/\['(.+?)'\]/);const aid=m?m[1]:k;aINC[aid]={};Object.keys(assetInc[k]).forEach(fk=>{if(PERIOD_IDENTIFIERS.has(fk))return;const info=assetInc[k][fk];aINC[aid][fk]=typeof info==='string'?info:(info?.reason||'Flagged')})});
+    aSORTF=aF.filter(([k])=>k!=='nameOfAsset').slice().sort(([,a],[,b])=>a.localeCompare(b));
+  }
+}
+
+// ═══ WEBSOCKET ════════════════════════════════════════════════════════════════
+let _wsReconnectTimer=null,_wsReconnectDelay=3000;
+function connectWs(runId){
+  leaveWs();
+  const proto=location.protocol==='https:'?'wss:':'ws:';
+  ws=new WebSocket(`${proto}//${location.host}`);
+  ws.onopen=()=>{_wsReconnectDelay=3000;ws.send(JSON.stringify({type:'join',run_id:runId,user_name:currentUser.name,user_role:currentUser.role}))};
+  ws.onmessage=e=>{try{const msg=JSON.parse(e.data);if(msg.type==='users_update'){activeUsers=msg.users;renderOnlineUsers()}else if(msg.type==='action_update'){setReviewLocal(msg.review);toast(`${msg.review.reviewer_name} updated a field`,'info',2000);render()}else if(msg.type==='run_status'){if(currentRun)currentRun.status=msg.status;toast(msg.status==='approved'?'Run approved — Golden Copy generated!':'Run status updated','ok');render()}}catch(_){}};
+  ws.onclose=()=>{ws=null;if(currentRun){_wsReconnectTimer=setTimeout(()=>{if(currentRun)connectWs(currentRun.id)},_wsReconnectDelay);_wsReconnectDelay=Math.min(_wsReconnectDelay*2,30000)}};
+}
+function leaveWs(){clearTimeout(_wsReconnectTimer);_wsReconnectTimer=null;_wsReconnectDelay=3000;if(ws){ws.close();ws=null};activeUsers=[]}
+
+// ═══ REVIEW POLLER ════════════════════════════════════════════════════════════
+let _pollTimer=null;
+
+// Fetches all reviews from server, replaces local state if anything differs.
+// Returns true if the table needs re-rendering.
+async function fetchAndSyncReviews(){
+  if(!currentRun)return false;
+  try{
+    const fresh=await api('GET',`/api/runs/${currentRun.id}/reviews`);
+    // Rebuild a clean reviews snapshot from the server response
+    const nr={fund:{},asset:{}};
+    for(const r of fresh){
+      const lv=r.level||'fund';
+      if(!nr[lv])nr[lv]={};
+      const k=reviewKey(lv,r.asset_id||'',r.field_key);
+      if(!nr[lv][k])nr[lv][k]={};
+      nr[lv][k][r.reviewer_name]={action:r.action,corrected_value:r.corrected_value,comment:r.comment,reviewer_role:r.reviewer_role,updated_at:r.updated_at};
+    }
+    // Deep-compare: only update + re-render if something actually changed
+    if(JSON.stringify(nr)!==JSON.stringify(reviews)){reviews=nr;return true}
+    return false;
+  }catch(_){return false}
+}
+
+async function pollReviews(){if(!currentRun)return;const changed=await fetchAndSyncReviews();if(changed)render()}
+function startPoll(){stopPoll();_pollTimer=setInterval(pollReviews,1000)}
+function stopPoll(){clearInterval(_pollTimer);_pollTimer=null}
+// Catch up immediately when the user switches back to this tab
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&currentRun)pollReviews()});
+
+function renderOnlineUsers(){const el=document.getElementById('onlinePills');if(!el)return;el.innerHTML=activeUsers.map(u=>`<span class="opill ${rolePillClass[u.role]||'op-reviewer'}"><span class="op-dot"></span>${escT(u.name)}</span>`).join('')}
+
+// ═══ RENDER ═══════════════════════════════════════════════════════════════════
+function setMode(m){MODE=m;ffView=null;afView=null;render()}
+function render(){if(MODE==='fund')renderFund();else renderAsset()}
+
+function reviewerStatusCell(level,assetId,fieldKey,reviewerName,origVal,currency){
+  const rowKey=makeRowKey(level,assetId,fieldKey);
+  const r=getReview(level,assetId,fieldKey,reviewerName);
+  const isMe=reviewerName===currentUser.name;
+  if(!r||r.action==='pending'||!r.action){
+    if(isMe){const cm=r?.comment||'';return`<div class="rev-cell-inner"><div class="pending-cell">— pending —</div><div class="action-btns"><button class="ib ib-v" data-action="validated" data-level="${level}" data-aid="${escT(assetId)}" data-fk="${escT(fieldKey)}" title="Validate">✓</button><button class="ib ib-x" data-open-correct data-level="${level}" data-aid="${escT(assetId)}" data-fk="${escT(fieldKey)}" title="Correct">✗</button><button class="ib ib-i" data-action="ignored" data-level="${level}" data-aid="${escT(assetId)}" data-fk="${escT(fieldKey)}" title="Ignore">—</button><button class="ib ib-c${cm?' hc':''}" data-open-comment data-level="${level}" data-aid="${escT(assetId)}" data-fk="${escT(fieldKey)}" title="Comment">💬</button></div></div>`}
+    return`<div class="rev-cell-inner"><div class="pending-cell">— pending —</div></div>`;
+  }
+  const{action,corrected_value,comment,updated_at}=r;const cm=comment||'';
+  let inner='';
+  if(action==='validated'){inner=`<div class="vd">${rv(origVal,currency)}</div><span class="bdg b-ok">✓ Validated</span>`}
+  else if(action==='corrected'){inner=`<div class="vd" style="color:#b06010">${escT(corrected_value||'')}</div><span class="bdg b-co">↗ Corrected</span><span class="sk">${rv(origVal,currency)}</span>`}
+  else if(action==='ignored'){inner=`<div class="vd" style="color:#999">${rv(origVal,currency)}</div><span class="bdg b-ig">— Ignored</span>`}
+  const cmHtml=cm?`<div class="comment-block">💬 ${escT(cm)}</div>`:'';
+  const revertBtn=isMe?`<button class="ib ib-r" data-action="pending" data-level="${level}" data-aid="${escT(assetId)}" data-fk="${escT(fieldKey)}" title="Revert">↩</button>`:'';
+  const cmBtn=isMe?`<button class="ib ib-c${cm?' hc':''}" data-open-comment data-level="${level}" data-aid="${escT(assetId)}" data-fk="${escT(fieldKey)}" title="Comment">💬</button>`:'';
+  return`<div class="rev-cell-inner">${inner}${cmHtml}<div style="font-size:9px;color:#bbb;margin-top:3px">${fmtTime(updated_at)}</div><div class="action-btns">${cmBtn}${revertBtn}</div></div>`;
+}
+
+function validatorCell(level,assetId,fieldKey,origVal,currency){
+  const vr=getReview(level,assetId,fieldKey,currentUser.name);
+  const k=reviewKey(level,assetId,fieldKey);
+  const fieldRevs=reviews[level]?.[k]||{};
+  const reviewerEntry=Object.entries(fieldRevs).find(([,r])=>r.reviewer_role==='reviewer');
+  const rvw=reviewerEntry?.[1]||null;
+  if(vr&&vr.action&&vr.action!=='pending'){
+    const{action,corrected_value,comment,updated_at}=vr;
+    const displayVal=action==='corrected'?escT(corrected_value||''):rv(origVal,currency);
+    const badgeClass=action==='validated'?'b-ok':action==='corrected'?'b-co':'b-ig';
+    const badgeLabel=action==='validated'?'✓ Accepted':action==='corrected'?'↗ Override':'— Ignored';
+    const cm=comment||'';const cmHtml=cm?`<div class="comment-block">💬 ${escT(cm)}</div>`:'';
+    return`<div class="rev-cell-inner"><div class="vd" style="${action==='corrected'?'color:#b06010':''}">${displayVal}</div><span class="bdg ${badgeClass}">${badgeLabel}</span>${cmHtml}<div class="action-btns"><button class="ib ib-c${cm?' hc':''}" data-open-comment data-level="${level}" data-aid="${escT(assetId)}" data-fk="${escT(fieldKey)}" title="Comment">💬</button><button class="ib ib-r" data-action="pending" data-level="${level}" data-aid="${escT(assetId)}" data-fk="${escT(fieldKey)}" title="Revert">↩</button></div></div>`;
+  }
+  let acceptHtml='<div class="final-accept">';
+  if(rvw&&rvw.action&&rvw.action!=='pending'){const v=rvw.action==='corrected'?rvw.corrected_value:null;acceptHtml+=`<button class="fa-btn fa-rv" data-accept-action="${escT(rvw.action)}" data-accept-val="${escT(v||'')}" data-level="${level}" data-aid="${escT(assetId)}" data-fk="${escT(fieldKey)}">✓ Accept</button>`}
+  acceptHtml+=`<button class="fa-btn fa-or" data-open-correct data-level="${level}" data-aid="${escT(assetId)}" data-fk="${escT(fieldKey)}">Override</button><button class="fa-btn fa-or" data-action="validated" data-level="${level}" data-aid="${escT(assetId)}" data-fk="${escT(fieldKey)}">Validate</button></div>`;
+  return`<div class="rev-cell-inner"><div class="pending-cell">— awaiting decision —</div>${acceptHtml}</div>`;
+}
+
+function makeRowKey(level,assetId,fieldKey){return`${level}||${assetId}||${fieldKey}`}
+
+function bulkBarHtml(){
+  if(sel.size===0)return'';
+  return`<div class="bulk-bar"><span>${sel.size} selected</span><button class="bb-v" onclick="bulkAction('validated')">✓ Validate All</button><button class="bb-i" onclick="bulkAction('ignored')">— Ignore All</button><button class="bb-x" onclick="openBulkCorrect()">✗ Correct All</button><button class="bb-r" onclick="bulkAction('pending')">↩ Revert All</button><button class="bb-c" onclick="openBulkComment()">💬 Comment All</button><button class="bb-clr" onclick="sel.clear();render()">✕ Clear</button></div>`;
+}
+
+async function bulkAction(action){const keys=[...sel];for(const rk of keys){const parts=rk.split('||');const level=parts[0],assetId=parts[1],fieldKey=parts[2];await doAction(level,assetId,fieldKey,action,null)}sel.clear();render()}
+function openBulkCorrect(){mMode='bulk-correct';mKey1=null;document.getElementById('masset').textContent='Bulk action';document.getElementById('mfield').textContent=`Apply to ${sel.size} selected fields`;document.getElementById('mcurSection').style.display='none';document.getElementById('minpLbl').textContent='Corrected value (applied to all selected)';document.getElementById('minp').placeholder='Enter value…';document.getElementById('minp').value='';document.getElementById('merr').style.display='none';document.getElementById('mclr').style.display='none';document.getElementById('msav').textContent='Apply to All';document.getElementById('overlay').classList.add('open');setTimeout(()=>document.getElementById('minp').focus(),80)}
+function openBulkComment(){mMode='bulk-comment';mKey1=null;document.getElementById('masset').textContent='Bulk action';document.getElementById('mfield').textContent=`Comment on ${sel.size} selected fields`;document.getElementById('mcurSection').style.display='none';document.getElementById('minpLbl').textContent='Comment (applied to all selected)';document.getElementById('minp').placeholder='Enter comment…';document.getElementById('minp').value='';document.getElementById('merr').style.display='none';document.getElementById('mclr').style.display='none';document.getElementById('msav').textContent='Apply to All';document.getElementById('overlay').classList.add('open');setTimeout(()=>document.getElementById('minp').focus(),80)}
+
+// ═══ FUND RENDERING ═══════════════════════════════════════════════════════════
+function visFund(){
+  const rows=[];
+  for(const fk of fFields){
+    const fd=fValues[fk];const dn=fd.display_name||fk;const fl=!!fINC[fk];
+    if(ffView){
+      // Card filter is active — it overrides ffF/ffN toggles
+      if(ffView==='flagged'){if(!fl)continue}
+      else if(ffView==='non_null'){if(fd.value===null||fd.value===undefined||fd.value==='')continue}
+      else{const k=reviewKey('fund','',fk);const myR=reviews.fund?.[k]?.[currentUser.name];const act=myR?.action||'pending';if(act!==ffView)continue}
+    } else {
+      if(ffF&&!fl)continue;
+      if(ffN&&(fd.value===null||fd.value===undefined))continue;
+    }
+    const q=ffS.toLowerCase();if(q&&!dn.toLowerCase().includes(q)&&!fk.toLowerCase().includes(q))continue;
+    rows.push({fk,dn,fl})
+  }
+  return rows;
+}
+
+function renderFund(){
+  const rows=visFund();
+  const allVisSelected=rows.length>0&&rows.every(({fk})=>sel.has(makeRowKey('fund','',fk)));
+  let totF=Object.keys(fINC).length,nV=0,nC=0,nI=0;
+  for(const k of Object.keys(reviews.fund||{})){const myR=reviews.fund[k]?.[currentUser.name];if(myR?.action==='validated')nV++;else if(myR?.action==='corrected')nC++;else if(myR?.action==='ignored')nI++}
+  const isVal=isValidator();
+  let reviewerDisplayName='Reviewer';
+  for(const k of Object.keys(reviews.fund||{})){const entry=Object.entries(reviews.fund[k]||{}).find(([,r])=>r.reviewer_role==='reviewer');if(entry){reviewerDisplayName=entry[0];break}}
+  let tb='';
+  if(!rows.length)tb=`<tr><td colspan="7" class="empty-msg">No matching fields.</td></tr>`;
+  else for(const{fk,dn,fl}of rows){
+    const fd=fValues[fk];const ev=fd.evidence||{};const pg=ev.page_number||ev.pageNumber||null;const et=ev.exact_text||ev.exactText||'';
+    const hasPdf=docs.some(d=>d.type==='pdf');
+    const pgHtml=pg?`<span class="pgn${hasPdf?' page-link':''}" ${hasPdf?`data-page="${pg}" data-text="${escT(et)}" title="Jump to page ${pg}"`:''}">p.${pg}</span>`:`<span style="color:#bbb;font-size:11px">—</span>`;
+    const rk=makeRowKey('fund','',fk);const checked=sel.has(rk);
+    const period=getPeriodForField('fund','',fk);
+    const periodHtml=period?`<span class="pgn">${escT(period)}</span>`:`<span style="color:#bbb;font-size:11px">—</span>`;
+    let rvwCell,valCell='';
+    if(isVal){rvwCell=reviewerStatusCell('fund','',fk,reviewerDisplayName,fd.value,fd.currency_code);valCell=`<td class="reviewer-col">${validatorCell('fund','',fk,fd.value,fd.currency_code)}</td>`}
+    else{rvwCell=reviewerStatusCell('fund','',fk,currentUser.name,fd.value,fd.currency_code)}
+    tb+=`<tr class="dr"><td style="vertical-align:middle;padding:4px 8px"><input type="checkbox" class="row-cb" data-rk="${rk}" ${checked?'checked':''}></td><td style="vertical-align:top;padding-top:9px">${escT(dn)}${fl?'<span class="pfdot"></span>':''}</td><td style="vertical-align:top">${rv(fd.value,fd.currency_code)}</td><td style="vertical-align:top;text-align:center;padding:10px 6px">${periodHtml}</td><td class="reviewer-col">${rvwCell}</td>${isVal?valCell:''}<td style="text-align:center;padding:10px 6px">${pgHtml}</td></tr>`;
+  }
+  const gcEnabled=isVal&&fFields.length>0;
+  const{remaining:gcRemaining}=isVal?computeValidationProgress():{remaining:0};
+  const gcClass=gcEnabled?'gcbtn has':'gcbtn none';
+  const gcLabel='Save Golden Copy';
+  const nonNullFund=fFields.filter(fk=>fValues[fk]?.value!==null&&fValues[fk]?.value!==undefined&&fValues[fk]?.value!=='').length;
+  const gcBtnHtml=gcEnabled?`<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px"><button class="${gcClass}" onclick="genGoldenCopy()">${gcLabel}</button>${gcRemaining>0?`<span style="font-size:11px;color:#999">${gcRemaining} field${gcRemaining===1?'':'s'} to validate</span>`:''}</div>`:'';
+  const gcFootNote=currentRun?.status==='approved'?' · ✅ Approved':isVal&&gcRemaining===0?' · ✓ All fields validated':isVal&&gcRemaining>0?` · ${gcRemaining} field${gcRemaining===1?'':'s'} to validate`:'';
+  const _savedScroll=document.querySelector('.tw')?.scrollTop||0;
+  document.getElementById('app').innerHTML=`${bulkBarHtml()}<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div class="mode-tabs"><button class="mode-tab${MODE==='fund'?' active':''}" onclick="setMode('fund')">Fund</button><button class="mode-tab${MODE==='asset'?' active':''}" onclick="setMode('asset')">Assets</button></div>${gcBtnHtml}</div><div class="sum"><div class="sc${ffView===null?'':''}" onclick="ffView=null;renderFund()"><div class="sl">Total fields</div><div class="sv">${fFields.length}</div></div><div class="sc${ffView==='non_null'?' sc-active':''}" onclick="ffView=ffView==='non_null'?null:'non_null';renderFund()"><div class="sl">Non-null fields</div><div class="sv">${nonNullFund}</div></div><div class="sc${ffView==='flagged'?' sc-active':''}" onclick="ffView=ffView==='flagged'?null:'flagged';renderFund()"><div class="sl">Flagged</div><div class="sv r">${totF}</div></div><div class="sc${ffView==='validated'?' sc-active':''}" onclick="ffView=ffView==='validated'?null:'validated';renderFund()"><div class="sl">My validated</div><div class="sv g">${nV}</div></div><div class="sc${ffView==='corrected'?' sc-active':''}" onclick="ffView=ffView==='corrected'?null:'corrected';renderFund()"><div class="sl">My corrected</div><div class="sv" style="color:#D42D11">${nC}</div></div><div class="sc${ffView==='ignored'?' sc-active':''}" onclick="ffView=ffView==='ignored'?null:'ignored';renderFund()"><div class="sl">My ignored</div><div class="sv" style="color:#D4CB11">${nI}</div></div></div><div class="ctrl"><button class="fb${ffF?' on':''}" onclick="ffF=!ffF;renderFund()">⚑ Flagged (${totF})</button><button class="fb${ffN?' on':''}" style="border-color:#888;color:${ffN?'#fff':'#666'};${ffN?'background:#666':''}" onclick="ffN=!ffN;renderFund()">Hide nulls</button><input id="fundSearch" class="sf" type="text" style="width:140px" placeholder="Search…" value="${escT(ffS)}" oninput="ffS=this.value;renderFund();setTimeout(()=>{const el=document.getElementById('fundSearch');if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length)}},0)"></div><div class="tw"><table><thead><tr><th style="width:32px"><input type="checkbox" class="row-cb" id="fundAllCb" ${allVisSelected?'checked':''} onclick="toggleAllFund(this.checked)"></th><th style="width:22%">Field</th><th style="width:15%">Extracted Value</th><th style="width:7%">Period</th><th style="width:${isVal?'23':'44'}%" class="reviewer-col">Reviewer's Review</th>${isVal?'<th style="width:23%" class="reviewer-col">Validator\'s Decision</th>':''}<th style="width:6%">Page</th></tr></thead><tbody>${tb}</tbody></table></div><div class="footer">Showing ${rows.length} of ${fFields.length} fields${gcFootNote}</div>`;
+  const _tw=document.querySelector('.tw');if(_tw){_tw.style.scrollBehavior='auto';_tw.scrollTop=_savedScroll;_tw.style.scrollBehavior=''}
+  attachTableListeners();
+}
+
+function toggleAllFund(checked){const rows=visFund();if(checked){rows.forEach(({fk})=>sel.add(makeRowKey('fund','',fk)))}else{rows.forEach(({fk})=>sel.delete(makeRowKey('fund','',fk)))}renderFund()}
+
+// ═══ ASSET RENDERING ══════════════════════════════════════════════════════════
+function visAsset(){
+  const rows=[];const aids=Object.keys(aAN);
+  for(const aid of aids){for(let i=0;i<aF.length;i++){
+    const[fk,dn]=aF[i];if(fk==='nameOfAsset')continue;
+    if(afP!=='ALL'&&fk!==afP)continue;
+    const fl=!!(aINC[aid]&&aINC[aid][fk]);
+    const[v]=aV[aid][i];
+    if(afView){
+      // Card filter is active — it overrides afF/afN toggles
+      if(afView==='flagged'){if(!fl)continue}
+      else if(afView==='non_null'){if(v===null||v===undefined||v==='')continue}
+      else{const k=reviewKey('asset',aid,fk);const myR=reviews.asset?.[k]?.[currentUser.name];const act=myR?.action||'pending';if(act!==afView)continue}
+    } else {
+      if(afF&&!fl)continue;
+      if(afN&&(v===null||v===undefined))continue;
+    }
+    const q=afS.toLowerCase();if(q&&!dn.toLowerCase().includes(q)&&!aDN[aid].toLowerCase().includes(q))continue;
+    rows.push({aid,i,fk,dn,fl})
+  }}
+  return rows;
+}
+
+function renderAsset(){
+  const rows=visAsset();const aids=Object.keys(aAN);
+  const allVisSelected=rows.length>0&&rows.every(({aid,fk})=>sel.has(makeRowKey('asset',aid,fk)));
+  let totF=0;for(const a of Object.keys(aINC))totF+=Object.keys(aINC[a]).length;
+  let nV=0,nC=0,nI=0;for(const k of Object.keys(reviews.asset||{})){const myR=reviews.asset[k]?.[currentUser.name];if(myR?.action==='validated')nV++;else if(myR?.action==='corrected')nC++;else if(myR?.action==='ignored')nI++}
+  const isVal=isValidator();
+  let reviewerDisplayName='Reviewer';
+  for(const k of Object.keys(reviews.asset||{})){const entry=Object.entries(reviews.asset[k]||{}).find(([,r])=>r.reviewer_role==='reviewer');if(entry){reviewerDisplayName=entry[0];break}}
+  let tb='';
+  if(!rows.length)tb=`<tr><td colspan="${isVal?8:7}" class="empty-msg">No matching fields.</td></tr>`;
+  else for(const{aid,i,fk,dn,fl}of rows){
+    const[v,c,pg,et]=aV[aid][i];const hasPdf=docs.some(d=>d.type==='pdf');
+    const pgHtml=pg?`<span class="pgn${hasPdf?' page-link':''}" ${hasPdf?`data-page="${pg}" data-text="${escT(et)}" title="Jump to page ${pg}"`:''}">p.${pg}</span>`:`<span style="color:#bbb;font-size:11px">—</span>`;
+    const rk=makeRowKey('asset',aid,fk);const checked=sel.has(rk);
+    const period=getPeriodForField('asset',aid,fk);
+    const periodHtml=period?`<span class="pgn">${escT(period)}</span>`:`<span style="color:#bbb;font-size:11px">—</span>`;
+    let rvwCell,valCell='';
+    if(isVal){rvwCell=reviewerStatusCell('asset',aid,fk,reviewerDisplayName,v,c);valCell=`<td class="reviewer-col">${validatorCell('asset',aid,fk,v,c)}</td>`}
+    else{rvwCell=reviewerStatusCell('asset',aid,fk,currentUser.name,v,c)}
+    tb+=`<tr class="dr"><td style="vertical-align:middle;padding:4px 8px"><input type="checkbox" class="row-cb" data-rk="${rk}" ${checked?'checked':''}></td><td class="asset-cell">${escT(aDN[aid])}</td><td>${escT(dn)}${fl?'<span class="pfdot"></span>':''}</td><td>${rv(v,c)}</td><td style="text-align:center;padding:10px 6px">${periodHtml}</td><td class="reviewer-col">${rvwCell}</td>${isVal?valCell:''}<td style="text-align:center;padding:10px 6px">${pgHtml}</td></tr>`;
+  }
+  const selOpts=`<option value="ALL">All properties</option>`+aSORTF.map(([fk,dn])=>`<option value="${fk}"${afP===fk?' selected':''}>${escT(dn)}</option>`).join('');
+  const gcEnabled=isVal&&aids.length>0;const{remaining:gcRemaining}=isVal?computeValidationProgress():{remaining:0};const gcClass=gcEnabled?'gcbtn has':'gcbtn none';
+  const gcLabel='Save Golden Copy';
+  const fieldCount=aF.length>1?aF.length-1:aF.length;
+  const totalAssetFields=fieldCount*aids.length;
+  let nonNullAssetFields=0;
+  if(aids.length&&aF.length>1){for(const aid of aids){for(let fi=1;fi<aF.length;fi++){const[v]=aV[aid][fi];if(v!==null&&v!==undefined&&v!=='')nonNullAssetFields++}}}
+  const _savedScroll=document.querySelector('.tw')?.scrollTop||0;
+  const gcBtnHtml=gcEnabled?`<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px"><button class="${gcClass}" onclick="genGoldenCopy()">${gcLabel}</button>${gcRemaining>0?`<span style="font-size:11px;color:#999">${gcRemaining} field${gcRemaining===1?'':'s'} to validate</span>`:''}</div>`:'';
+  const gcFootNote=currentRun?.status==='approved'?' · ✅ Approved':isVal&&gcRemaining===0?' · ✓ All fields validated':isVal&&gcRemaining>0?` · ${gcRemaining} field${gcRemaining===1?'':'s'} to validate`:'';
+  document.getElementById('app').innerHTML=`${bulkBarHtml()}<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div class="mode-tabs"><button class="mode-tab${MODE==='fund'?' active':''}" onclick="setMode('fund')">Fund</button><button class="mode-tab${MODE==='asset'?' active':''}" onclick="setMode('asset')">Assets</button></div>${gcBtnHtml}</div><div class="sum"><div class="sc" onclick="afView=null;renderAsset()"><div class="sl">Total assets</div><div class="sv">${aids.length}</div></div><div class="sc" onclick="afView=null;renderAsset()"><div class="sl">Total fields</div><div class="sv">${totalAssetFields}</div></div><div class="sc${afView==='non_null'?' sc-active':''}" onclick="afView=afView==='non_null'?null:'non_null';renderAsset()"><div class="sl">Non-null fields</div><div class="sv">${nonNullAssetFields}</div></div><div class="sc${afView==='flagged'?' sc-active':''}" onclick="afView=afView==='flagged'?null:'flagged';renderAsset()"><div class="sl">Flagged</div><div class="sv r">${totF}</div></div><div class="sc${afView==='validated'?' sc-active':''}" onclick="afView=afView==='validated'?null:'validated';renderAsset()"><div class="sl">My validated</div><div class="sv g">${nV}</div></div><div class="sc${afView==='corrected'?' sc-active':''}" onclick="afView=afView==='corrected'?null:'corrected';renderAsset()"><div class="sl">My corrected</div><div class="sv" style="color:#D42D11">${nC}</div></div><div class="sc${afView==='ignored'?' sc-active':''}" onclick="afView=afView==='ignored'?null:'ignored';renderAsset()"><div class="sl">My ignored</div><div class="sv" style="color:#D4CB11">${nI}</div></div></div><div class="ctrl"><button class="fb${afF?' on':''}" onclick="afF=!afF;renderAsset()">⚑ Flagged (${totF})</button><button class="fb${afN?' on':''}" style="border-color:#888;color:${afN?'#fff':'#666'};${afN?'background:#666':''}" onclick="afN=!afN;renderAsset()">Hide nulls</button><select class="sf" style="min-width:160px" onchange="afP=this.value;renderAsset()">${selOpts}</select><input id="assetSearch" class="sf" type="text" style="width:120px" placeholder="Search…" value="${escT(afS)}" oninput="afS=this.value;renderAsset();setTimeout(()=>{const el=document.getElementById('assetSearch');if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length)}},0)"></div><div class="tw"><table><thead><tr><th style="width:32px"><input type="checkbox" class="row-cb" id="assetAllCb" ${allVisSelected?'checked':''} onclick="toggleAllAsset(this.checked)"></th><th style="width:13%">Asset</th><th style="width:13%">Field</th><th style="width:10%">Extracted Value</th><th style="width:7%">Period</th><th style="width:${isVal?'20':'34'}%" class="reviewer-col">Reviewer's Review</th>${isVal?'<th style="width:20%" class="reviewer-col">Validator\'s Decision</th>':''}<th style="width:6%">Page</th></tr></thead><tbody>${tb}</tbody></table></div><div class="footer">Showing ${rows.length} of ${(aF.length-1)*aids.length} fields${gcFootNote}</div>`;
+  const _tw=document.querySelector('.tw');if(_tw){_tw.style.scrollBehavior='auto';_tw.scrollTop=_savedScroll;_tw.style.scrollBehavior=''}
+  attachTableListeners();
+}
+
+function toggleAllAsset(checked){const rows=visAsset();if(checked){rows.forEach(({aid,fk})=>sel.add(makeRowKey('asset',aid,fk)))}else{rows.forEach(({aid,fk})=>sel.delete(makeRowKey('asset',aid,fk)))}renderAsset()}
+
+function attachTableListeners(){
+  document.querySelectorAll('.row-cb[data-rk]').forEach(cb=>{cb.addEventListener('change',e=>{const rk=e.target.dataset.rk;if(e.target.checked)sel.add(rk);else sel.delete(rk);render()})});
+  // Column resizing
+  document.querySelectorAll('.tw table thead th').forEach(th=>{
+    if(th.querySelector('.col-resize-handle'))return;
+    const handle=document.createElement('div');
+    handle.className='col-resize-handle';
+    th.appendChild(handle);
+    handle.addEventListener('mousedown',e=>{
+      e.preventDefault();e.stopPropagation();
+      handle.classList.add('active');
+      const startX=e.clientX;
+      const startW=th.offsetWidth;
+      const table=th.closest('table');
+      const mv=e2=>{
+        const newW=Math.max(40,startW+(e2.clientX-startX));
+        th.style.width=newW+'px';
+        th.style.minWidth=newW+'px';
+      };
+      const up=()=>{
+        handle.classList.remove('active');
+        document.removeEventListener('mousemove',mv);
+        document.removeEventListener('mouseup',up);
+      };
+      document.addEventListener('mousemove',mv);
+      document.addEventListener('mouseup',up);
+    });
+  });
+}
+
+document.getElementById('app').addEventListener('click',e=>{
+  const pl=e.target.closest('.page-link');if(pl&&pl.dataset.page){scrollToPage(Number(pl.dataset.page),pl.dataset.text||'');return}
+  const btn=e.target.closest('[data-action]');if(btn){const{action,level,aid,fk}=btn.dataset;doAction(level,aid||'',fk,action,null);return}
+  const bc=e.target.closest('[data-open-correct]');if(bc){openMCorrect(bc.dataset.level,bc.dataset.aid||'',bc.dataset.fk);return}
+  const bm=e.target.closest('[data-open-comment]');if(bm){openMComment(bm.dataset.level,bm.dataset.aid||'',bm.dataset.fk);return}
+  const ba=e.target.closest('[data-accept-action]');if(ba){doAction(ba.dataset.level,ba.dataset.aid||'',ba.dataset.fk,ba.dataset.acceptAction,ba.dataset.acceptVal||null);return}
+});
+
+// ═══ ACTIONS ══════════════════════════════════════════════════════════════════
+async function doAction(level,assetId,fieldKey,action,correctedValue){
+  const body={reviewer_name:currentUser.name,reviewer_role:currentUser.role,level,asset_id:assetId||'',field_key:fieldKey,action,corrected_value:correctedValue||null};
+  try{
+    const review=await api('POST',`/api/runs/${currentRun.id}/action`,body);
+    setReviewLocal(review);render();
+    if(isValidator()&&action!=='pending'&&currentRun?.status!=='approved'){
+      const{remaining}=computeValidationProgress();
+      if(remaining===0) await genGoldenCopy(true);
+    }
+  }catch(e){toast('Failed to save action','err')}
+}
+
+// ═══ MODAL ════════════════════════════════════════════════════════════════════
+function setMEvidence(level,assetId,fieldKey){
+  const el=document.getElementById('mevidence');
+  let pg=null,et='';
+  if(level==='fund'){const ev=fValues[fieldKey]?.evidence||{};pg=ev.page_number||ev.pageNumber||null;et=ev.exact_text||ev.exactText||''}
+  else{const fi=aF.findIndex(([k])=>k===fieldKey);if(fi!==-1){const[,,p,e]=aV[assetId][fi];pg=p;et=e||''}}
+  if(pg){
+    const hasPdf=docs.some(d=>d.type==='pdf');
+    const linkHtml=hasPdf?`<span class="page-link pgn" data-page="${pg}" data-text="${escT(et)}" style="background:#2980b9;color:#fff;padding:2px 7px;border-radius:4px;cursor:pointer" title="Jump to page ${pg}">p.${pg} ↗</span>`:`<span class="pgn">p.${pg}</span>`;
+    el.style.display='flex';
+    el.innerHTML=`<span style="color:#555">📄 Evidence on</span>${linkHtml}${et?`<span style="color:#777;font-size:11px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escT(et.slice(0,80))}</span>`:''}`;
+    el.querySelectorAll('.page-link').forEach(pl=>pl.addEventListener('click',()=>scrollToPage(Number(pl.dataset.page),pl.dataset.text||'')));
+  }else{el.style.display='none';el.innerHTML=''}
+}
+function openMCorrect(level,assetId,fieldKey){
+  mMode='correct';mKey1={level,assetId,fieldKey};
+  let origVal='',dn=fieldKey;
+  if(level==='fund'){const fd=fValues[fieldKey];origVal=fd.value===null?'null':String(fd.value);dn=fd.display_name||fieldKey}
+  else{const fi=aF.findIndex(([k])=>k===fieldKey);const[v]=aV[assetId][fi];origVal=v===null?'null':String(v);dn=aF[fi][1]}
+  document.getElementById('masset').textContent=level==='fund'?'Fund Level':aDN[assetId]||assetId;
+  document.getElementById('mfield').textContent=dn;document.getElementById('mcurSection').style.display='';document.getElementById('mcur').textContent=origVal;setMEvidence(level,assetId,fieldKey);document.getElementById('minpLbl').textContent='Corrected value';document.getElementById('minp').placeholder='Enter the correct value…';document.getElementById('minp').value='';document.getElementById('merr').style.display='none';document.getElementById('mclr').style.display='none';document.getElementById('msav').textContent='Save correction';document.getElementById('overlay').classList.add('open');setTimeout(()=>document.getElementById('minp').focus(),80);
+}
+function openMComment(level,assetId,fieldKey){
+  mMode='comment';mKey1={level,assetId,fieldKey};
+  const existing=getReview(level,assetId||'',fieldKey,currentUser.name)?.comment||'';
+  let dn=fieldKey;if(level==='fund'){dn=fValues[fieldKey]?.display_name||fieldKey}else{const fi=aF.findIndex(([k])=>k===fieldKey);dn=aF[fi]?aF[fi][1]:fieldKey}
+  document.getElementById('masset').textContent=level==='fund'?'Fund Level':aDN[assetId]||assetId;document.getElementById('mfield').textContent=dn;document.getElementById('mcurSection').style.display='none';setMEvidence(level,assetId,fieldKey);document.getElementById('minpLbl').textContent='Comment';document.getElementById('minp').placeholder='Add your comment…';document.getElementById('minp').value=existing;document.getElementById('merr').style.display='none';document.getElementById('mclr').style.display=existing?'inline-flex':'none';document.getElementById('msav').textContent='Save comment';document.getElementById('overlay').classList.add('open');setTimeout(()=>document.getElementById('minp').focus(),80);
+}
+function closeM(){document.getElementById('overlay').classList.remove('open');mMode=null}
+async function saveM(){
+  const val=document.getElementById('minp').value.trim();
+  if(!val){document.getElementById('merr').style.display='block';return}
+  document.getElementById('merr').style.display='none';
+  if(mMode==='bulk-correct'){const keys=[...sel];for(const rk of keys){const parts=rk.split('||');const level=parts[0],assetId=parts[1],fieldKey=parts[2];await doAction(level,assetId,fieldKey,'corrected',val)}sel.clear();closeM();render();return}
+  if(mMode==='bulk-comment'){const keys=[...sel];for(const rk of keys){const parts=rk.split('||');const level=parts[0],assetId=parts[1],fieldKey=parts[2];const current=getReview(level,assetId||'',fieldKey,currentUser.name)||{};const body={reviewer_name:currentUser.name,reviewer_role:currentUser.role,level,asset_id:assetId||'',field_key:fieldKey,action:current.action||'pending',corrected_value:current.corrected_value||null,comment:val};try{const review=await api('POST',`/api/runs/${currentRun.id}/action`,body);setReviewLocal(review)}catch{}}sel.clear();closeM();render();return}
+  const{level,assetId,fieldKey}=mKey1;
+  if(mMode==='correct'){await doAction(level,assetId||'',fieldKey,'corrected',val)}
+  else if(mMode==='comment'){const current=getReview(level,assetId||'',fieldKey,currentUser.name)||{};const body={reviewer_name:currentUser.name,reviewer_role:currentUser.role,level,asset_id:assetId||'',field_key:fieldKey,action:current.action||'pending',corrected_value:current.corrected_value||null,comment:val};try{const review=await api('POST',`/api/runs/${currentRun.id}/action`,body);setReviewLocal(review);render()}catch{toast('Failed to save comment','err')}}
+  closeM();
+}
+async function clearComment(){const{level,assetId,fieldKey}=mKey1;const current=getReview(level,assetId||'',fieldKey,currentUser.name)||{};const body={reviewer_name:currentUser.name,reviewer_role:currentUser.role,level,asset_id:assetId||'',field_key:fieldKey,action:current.action||'pending',corrected_value:current.corrected_value||null,comment:null};try{const review=await api('POST',`/api/runs/${currentRun.id}/action`,body);setReviewLocal(review);render()}catch{toast('Failed to clear comment','err')}closeM()}
+
+// ═══ GOLDEN COPY ══════════════════════════════════════════════════════════════
+async function genGoldenCopy(isAuto=false){
+  if(!isValidator()){toast('Only the validator can generate a golden copy','err');return}
+  const now=new Date().toISOString();
+  const data={source_file:currentRun.source_file,run_id:currentRun.id,generated_at:now,generated_by:currentUser.name,type:'combined',fund:{},assets:{},audit_log:[]};
+  for(const fk of fFields){const fd=fValues[fk];const myR=getReview('fund','',fk,currentUser.name);const isCorrected=myR?.action==='corrected';const finalVal=isCorrected?parseVal(myR.corrected_value):fd.value;data.fund[fk]={displayName:fd.display_name||fk,value:finalVal};if(fd.currency_code)data.fund[fk].currency_code=fd.currency_code;if(myR?.action&&myR.action!=='pending')data.fund[fk]._review_status=myR.action;if(myR?.comment)data.fund[fk]._comment=myR.comment;const allRevs=Object.entries(reviews.fund?.[fk]||{}).map(([rn,r])=>({reviewer:rn,...r}));if(allRevs.length)data.audit_log.push({level:'fund',field_key:fk,display_name:fd.display_name||fk,original_value:fd.value,final_value:finalVal,reviews:allRevs,finalized_at:now})}
+  const aids=Object.keys(aAN);
+  aids.forEach(aid=>{data.assets[aid]={};aF.forEach(([fk,dn],fi)=>{const[v,c]=aV[aid][fi];const myR=getReview('asset',aid,fk,currentUser.name);const isCorrected=myR?.action==='corrected';const finalVal=isCorrected?parseVal(myR.corrected_value):v;data.assets[aid][fk]={displayName:dn,value:finalVal};if(c)data.assets[aid][fk].currency_code=c;if(myR?.action&&myR.action!=='pending')data.assets[aid][fk]._review_status=myR.action;if(myR?.comment)data.assets[aid][fk]._comment=myR.comment;const allRevs=Object.entries(reviews.asset?.[reviewKey('asset',aid,fk)]||{}).map(([rn,r])=>({reviewer:rn,...r}));if(isCorrected||allRevs.length)data.audit_log.push({level:'asset',asset_id:aid,asset_name:aAN[aid],field_key:fk,display_name:dn,original_value:v,final_value:finalVal,reviews:allRevs,finalized_at:now})})});
+  try{await api('POST',`/api/runs/${currentRun.id}/golden-copy`,{created_by:currentUser.name,data});toast(isAuto?'All fields validated — auto-approved!':'Golden copy saved!','ok',3000);if(currentRun)currentRun.status='approved';render()}
+  catch(e){toast('Failed to create golden copy','err')}
+}
+
+async function approveRun(runId){
+  try{
+    await api('POST',`/api/runs/${runId}/approve`);
+    const r=allRuns.find(r=>r.id===runId);if(r)r.status='approved';
+    toast('Run approved!','ok');renderRuns();
+  }catch(e){toast('Failed to approve run','err')}
+}
+
+// ═══ DOCUMENT VIEWER ══════════════════════════════════════════════════════════
+const docs=[];let activeDocId=null,pdfScale=1.1;
+const fileInput2=document.getElementById('fileInput');
+fileInput2.addEventListener('change',e=>{handleFiles(e.target.files);e.target.value=''});
+const uploadZone=document.getElementById('uploadZone');
+uploadZone.addEventListener('dragover',e=>{e.preventDefault();uploadZone.classList.add('dragover')});
+uploadZone.addEventListener('dragleave',()=>uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop',e=>{e.preventDefault();uploadZone.classList.remove('dragover');handleFiles(e.dataTransfer.files)});
+
+function handleFiles(files){for(const file of files){const id='doc-'+Date.now()+'-'+Math.random().toString(36).slice(2,6);const ext=file.name.split('.').pop().toLowerCase();const reader=new FileReader();if(ext==='pdf'){reader.onload=ev=>{docs.push({id,name:file.name,type:'pdf',data:new Uint8Array(ev.target.result)});activeDocId=id;renderDocUI();loadPDF(id)};reader.readAsArrayBuffer(file)}else if(['png','jpg','jpeg','gif','webp','svg'].includes(ext)){reader.onload=ev=>{docs.push({id,name:file.name,type:'image',data:ev.target.result});activeDocId=id;renderDocUI();showImage(id)};reader.readAsDataURL(file)}else{reader.onload=ev=>{docs.push({id,name:file.name,type:'text',data:ev.target.result});activeDocId=id;renderDocUI();showText(id)};reader.readAsText(file)}}}
+
+function renderDocUI(){const docTabs=document.getElementById('docTabs');const docBody=document.getElementById('docBody');if(!docs.length){docTabs.innerHTML='';docBody.innerHTML='<div class="upload-zone" id="uploadZone"><h4>Upload source documents</h4><p>Drop PDFs or images here.</p><button class="sm-btn" onclick="document.getElementById(\'fileInput\').click()">Choose files</button></div>';return}docTabs.innerHTML=docs.map(d=>`<button class="doc-tab${d.id===activeDocId?' active':''}" onclick="switchDoc('${d.id}')">${d.name.length>18?d.name.slice(0,16)+'…':d.name}<span class="cls" onclick="event.stopPropagation();removeDoc('${d.id}')">✕</span></button>`).join('')}
+function switchDoc(id){activeDocId=id;renderDocUI();const doc=docs.find(d=>d.id===id);if(!doc)return;if(doc.type==='pdf')loadPDF(id);else if(doc.type==='image')showImage(id);else showText(id)}
+function removeDoc(id){const idx=docs.findIndex(d=>d.id===id);if(idx===-1)return;docs.splice(idx,1);if(activeDocId===id)activeDocId=docs.length?docs[Math.max(0,idx-1)].id:null;renderDocUI();if(activeDocId)switchDoc(activeDocId)}
+function showImage(id){const doc=docs.find(d=>d.id===id);document.getElementById('docBody').innerHTML=`<div class="img-viewer"><img src="${doc.data}"></div>`}
+function showText(id){const doc=docs.find(d=>d.id===id);const el=document.createElement('div');el.textContent=doc.data;document.getElementById('docBody').innerHTML=`<div class="text-viewer">${el.innerHTML}</div>`}
+
+const pageTextData={};
+async function loadPDF(id){
+  const doc=docs.find(d=>d.id===id);if(!doc||doc.type!=='pdf')return;
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  try{const pdf=await pdfjsLib.getDocument({data:doc.data.slice(0)}).promise;doc.pdf=pdf;document.getElementById('docBody').innerHTML=`<div class="pdf-controls"><button onclick="pdfZoom(-0.2)">−</button><span id="pdfZoomLabel">${Math.round(pdfScale*100)}%</span><button onclick="pdfZoom(0.2)">+</button><span style="margin:0 8px;opacity:0.4">|</span><span>${pdf.numPages} pages</span></div><div class="pdf-scroll" id="pdfScroll"><div class="pdf-pages" id="pdfPages"></div></div>`;renderAllPages(pdf)}
+  catch(e){document.getElementById('docBody').innerHTML=`<div class="upload-zone"><h4>Could not load PDF</h4><p>${e.message}</p></div>`}
+}
+
+async function renderAllPages(pdf){
+  const c=document.getElementById('pdfPages');if(!c)return;c.innerHTML='';
+  for(let i=1;i<=pdf.numPages;i++){
+    const dpr=window.devicePixelRatio||1;const pg=await pdf.getPage(i);
+    const vpCSS=pg.getViewport({scale:pdfScale});const vpRender=pg.getViewport({scale:pdfScale*dpr});
+    const cssW=vpCSS.width,cssH=vpCSS.height;
+    const w=document.createElement('div');w.className='pdf-page-wrapper';w.id='pdf-page-wrapper-'+i;w.style.width=cssW+'px';w.style.height=cssH+'px';
+    const cv=document.createElement('canvas');cv.width=vpRender.width;cv.height=vpRender.height;cv.id='pdf-page-'+i;cv.style.cssText=`display:block;width:${cssW}px;height:${cssH}px;box-shadow:0 1px 6px rgba(0,0,0,0.15);background:#fff`;
+    w.appendChild(cv);c.appendChild(w);
+    const lb=document.createElement('div');lb.style.cssText='font-size:10px;color:#999;margin-bottom:12px;text-align:center;margin-top:4px';lb.textContent=`Page ${i}`;c.appendChild(lb);
+    await pg.render({canvasContext:cv.getContext('2d'),viewport:vpRender}).promise;
+    const tc=await pg.getTextContent();pageTextData[i]={items:tc.items,viewport:vpCSS};
+  }
+}
+
+function findTextRects(pn,st){const d=pageTextData[pn];if(!d||!st)return[];const items=d.items,vp=d.viewport;const needle=st.replace(/\s+/g,' ').trim().toLowerCase();if(!needle)return[];const fi=items.filter(it=>it.str&&it.str.trim()).map(it=>{const tx=vp.convertToViewportPoint(it.transform[4],it.transform[5]);const fs=Math.sqrt(it.transform[0]**2+it.transform[1]**2);return{str:it.str,x:tx[0],y:tx[1]-fs,w:it.width*(vp.scale||pdfScale),h:fs}});let concat='';const cm2=[];for(let i=0;i<fi.length;i++){for(let j=0;j<fi[i].str.length;j++){cm2.push(i);concat+=fi[i].str[j]}cm2.push(i);concat+=' '}const cl=concat.toLowerCase(),rects=[];let sp=0;while(true){const idx=cl.indexOf(needle,sp);if(idx===-1)break;const si=cm2[idx],ei=cm2[Math.min(idx+needle.length-1,cm2.length-1)];let x1=Infinity,y1=Infinity,x2=-Infinity,y2=-Infinity;for(let k=si;k<=ei;k++){const it=fi[k];x1=Math.min(x1,it.x);y1=Math.min(y1,it.y);x2=Math.max(x2,it.x+it.w);y2=Math.max(y2,it.y+it.h)}if(x1<Infinity)rects.push({x:x1-3,y:y1-2,w:(x2-x1)+6,h:(y2-y1)+4});sp=idx+1}return rects}
+function highlightTextOnPage(pn,et){document.querySelectorAll('.pdf-highlight-box').forEach(el=>el.remove());const w=document.getElementById('pdf-page-wrapper-'+pn);if(!w)return;findTextRects(pn,et).forEach(r=>{const hl=document.createElement('div');hl.className='pdf-highlight-box animate';hl.style.left=r.x+'px';hl.style.top=r.y+'px';hl.style.width=r.w+'px';hl.style.height=r.h+'px';w.appendChild(hl)})}
+function scrollToPage(pn,et){const w=document.getElementById('pdf-page-wrapper-'+pn);const container=document.getElementById('pdfScroll')||document.getElementById('docBody');if(!w||!container)return;const rects=findTextRects(pn,et);if(rects.length>0){const r=rects[0];const cRect=container.getBoundingClientRect();const wRect=w.getBoundingClientRect();const textAbsY=container.scrollTop+(wRect.top-cRect.top)+r.y+(r.h/2);container.scrollTo({top:Math.max(0,textAbsY-(container.clientHeight/2)),behavior:'smooth'})}else{const cRect=container.getBoundingClientRect();const wRect=w.getBoundingClientRect();container.scrollTo({top:Math.max(0,container.scrollTop+(wRect.top-cRect.top)-(container.clientHeight/2)+(w.offsetHeight/2)),behavior:'smooth'})}setTimeout(()=>highlightTextOnPage(pn,et),400)}
+function pdfZoom(d){pdfScale=Math.max(0.5,Math.min(3,pdfScale+d));document.getElementById('pdfZoomLabel').textContent=Math.round(pdfScale*100)+'%';const doc=docs.find(d2=>d2.id===activeDocId);if(doc?.pdf)renderAllPages(doc.pdf)}
+
+// Divider drag
+const divider=document.getElementById('divider'),panelLeft=document.getElementById('panelLeft');
+divider.addEventListener('mousedown',e=>{e.preventDefault();divider.classList.add('active');const mv=e2=>{panelLeft.style.width=Math.max(15,Math.min(65,(e2.clientX/window.innerWidth)*100))+'%'};const up=()=>{divider.classList.remove('active');document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up)};document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up)});
+
+// ═══ DARK MODE ════════════════════════════════════════════════════════════════
+function toggleDarkMode(){
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  const next=isDark?'light':'dark';
+  document.documentElement.classList.add('dk-transition');
+  document.documentElement.setAttribute('data-theme',next);
+  localStorage.setItem('theme',next);
+  document.querySelectorAll('.dm-toggle').forEach(b=>{b.textContent=next==='dark'?'☀️':'🌙'});
+  setTimeout(()=>document.documentElement.classList.remove('dk-transition'),350);
+}
+(function(){
+  const saved=localStorage.getItem('theme');
+  const pref=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
+  const t=saved||pref;
+  document.documentElement.setAttribute('data-theme',t);
+  document.addEventListener('DOMContentLoaded',()=>{
+    const icon=t==='dark'?'☀️':'🌙';
+    document.querySelectorAll('.dm-toggle').forEach(b=>{b.textContent=icon});
+  });
+})();
+
+// Boot
+initLogin();
+</script>
+<!-- ═══ GOLDEN COPY VIEWER MODAL ══════════════════════════════════════════ -->
+<div id="gcViewModal">
+  <div class="gcv-box">
+    <div class="gcv-header">
+      <h3 id="gcvTitle">Golden Copy</h3>
+      <div class="gcv-meta" id="gcvMeta"></div>
+      <div class="gcv-header-row">
+        <div class="gcv-tabs">
+          <button class="gcv-tab active" id="gcvTabFund"   onclick="gcvSetTab('fund')">Fund Fields</button>
+          <button class="gcv-tab"        id="gcvTabAssets" onclick="gcvSetTab('assets')">Assets</button>
+        </div>
+        <div class="gcv-actions">
+          <button class="gcv-dl-btn" onclick="gcvDownloadPdf()">⬇ PDF</button>
+          <button class="gcv-dl-btn" onclick="gcvDownloadJson()">⬇ JSON</button>
+          <button class="gcv-dl-btn" id="gcvApproveBtn" onclick="gcvApprove()" style="background:#1a7a35;color:#fff;border-color:#1a7a35">✓ Approve</button>
+          <button class="gcv-close-btn" onclick="closeGcView()">Close</button>
+        </div>
+      </div>
+    </div>
+    <div class="gcv-body" id="gcvBody"></div>
+  </div>
+</div>
+
+<script>
+// ═══ GOLDEN COPY VIEWER ═══════════════════════════════════════════════════════
+let gcvData=null, gcvRunId=null, gcvTab='fund';
+
+async function openGoldenCopyView(runId){
+  try{
+    const copies=await api('GET',`/api/runs/${runId}/golden-copies`);
+    if(!copies.length){toast('No golden copy found','err');return}
+    const gc=await api('GET',`/api/golden-copies/${copies[0].id}`);
+    const run=allRuns.find(r=>r.id===runId)||{};
+    gcvData=gc; gcvRunId=runId; gcvTab='fund';
+    document.getElementById('gcvTitle').textContent=run.name||run.source_file||'Golden Copy';
+    const dt=gc.created_at?fmtDate(gc.created_at):'';
+    document.getElementById('gcvMeta').textContent=`Generated by ${gc.created_by||'—'}  ·  ${dt}  ·  ${gc.data?.source_file||''}`;
+    document.getElementById('gcvTabFund').classList.add('active');
+    document.getElementById('gcvTabAssets').classList.remove('active');
+    document.getElementById('gcViewModal').classList.add('open');
+    gcvRender();gcvSyncApproveBtn();
+  }catch(e){console.error(e);toast('Failed to load golden copy','err')}
+}
+
+function closeGcView(){
+  document.getElementById('gcViewModal').classList.remove('open');
+  gcvData=null; gcvRunId=null;
+}
+
+function gcvSyncApproveBtn(){
+  const btn=document.getElementById('gcvApproveBtn');if(!btn)return;
+  const run=allRuns.find(r=>r.id===gcvRunId);
+  const isApproved=run?.status==='approved';
+  const isVal=currentUser?.role==='validator';
+  btn.style.display=(!isVal)?'none':'';
+  btn.disabled=isApproved;
+  btn.textContent=isApproved?'✅ Approved':'✓ Approve';
+  btn.style.opacity=isApproved?'0.5':'1';
+  btn.style.cursor=isApproved?'default':'pointer';
+}
+
+async function gcvApprove(){
+  if(!gcvRunId) return;
+  try{
+    await api('POST',`/api/runs/${gcvRunId}/approve`);
+    const r=allRuns.find(r=>r.id===gcvRunId);if(r)r.status='approved';
+    toast('Run approved!','ok');
+    gcvSyncApproveBtn();renderRuns();
+  }catch(e){toast('Failed to approve','err')}
+}
+
+function gcvSetTab(tab){
+  gcvTab=tab;
+  document.getElementById('gcvTabFund').classList.toggle('active',tab==='fund');
+  document.getElementById('gcvTabAssets').classList.toggle('active',tab==='assets');
+  gcvRender();
+}
+
+function gcvVal(f){
+  if(f.value==null) return '<span style="color:#bbb">—</span>';
+  const v=escT(String(f.value));
+  const cur=f.currency_code?` <span style="font-size:10px;color:#888">${escT(f.currency_code)}</span>`:'';
+  return v+cur;
+}
+
+function gcvRender(){
+  const body=document.getElementById('gcvBody');
+  const d=gcvData?.data;
+  if(!d){body.innerHTML='<div class="gcv-empty">No data available</div>';return}
+
+  if(gcvTab==='fund'){
+    const entries=Object.entries(d.fund||{});
+    if(!entries.length){body.innerHTML='<div class="gcv-empty">No fund fields</div>';return}
+    const rows=entries.map(([fk,f])=>{
+      const st=f._review_status||'';
+      const badge=st?`<span class="gcv-badge ${st}">${st}</span>`:'';
+      const comment=f._comment?`<div style="font-size:11px;color:#888;margin-top:3px">💬 ${escT(f._comment)}</div>`:'';
+      return`<tr${st==='corrected'?' class="gcv-corrected"':''}>
+        <td style="font-weight:500">${escT(f.displayName||fk)}</td>
+        <td>${gcvVal(f)}</td>
+        <td>${badge}${comment}</td>
+      </tr>`;
+    }).join('');
+    body.innerHTML=`<table class="gcv-table">
+      <thead><tr><th style="width:32%">Field</th><th style="width:38%">Final Value</th><th>Status</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+
+  }else{
+    const assetIds=Object.keys(d.assets||{});
+    if(!assetIds.length){body.innerHTML='<div class="gcv-empty">No asset data</div>';return}
+    let rows='';
+    for(const aid of assetIds){
+      const fields=Object.entries(d.assets[aid]||{});
+      if(!fields.length) continue;
+      let first=true;
+      for(const [fk,f] of fields){
+        const st=f._review_status||'';
+        const badge=st?`<span class="gcv-badge ${st}">${st}</span>`:'';
+        rows+=`<tr${st==='corrected'?' class="gcv-corrected"':''}>
+          ${first?`<td rowspan="${fields.length}" style="font-weight:500;vertical-align:top;padding-top:10px;border-right:1px solid #f0f0ee">${escT(aid)}</td>`:''}
+          <td>${escT(f.displayName||fk)}</td>
+          <td>${gcvVal(f)}</td>
+          <td>${badge}</td>
+        </tr>`;
+        first=false;
+      }
+    }
+    body.innerHTML=`<table class="gcv-table">
+      <thead><tr><th style="width:18%">Asset</th><th style="width:28%">Field</th><th style="width:32%">Final Value</th><th>Status</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }
+}
+
+function gcvDownloadJson(){
+  if(!gcvData) return;
+  const run=allRuns.find(r=>r.id===gcvRunId)||{};
+  const blob=new Blob([JSON.stringify({golden:gcvData.data},null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`golden_copy_${(run.name||gcvRunId).replace(/[^\w\-]/g,'_')}.json`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+async function gcvDownloadPdf(){
+  if(!gcvRunId) return;
+  try{
+    const resp=await fetch(`/api/runs/${gcvRunId}/pdf`);
+    if(!resp.ok){toast('No PDF on file','err');return}
+    const run=allRuns.find(r=>r.id===gcvRunId)||{};
+    const blob=new Blob([await resp.arrayBuffer()],{type:'application/pdf'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download=run.pdf_filename||`${gcvRunId}.pdf`;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  }catch{toast('Failed to download PDF','err')}
+}
+
+// Close on Escape
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&document.getElementById('gcViewModal').classList.contains('open')) closeGcView();
+});
+</script>
+</body>
+</html>
